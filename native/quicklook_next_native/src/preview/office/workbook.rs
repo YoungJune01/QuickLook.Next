@@ -5,7 +5,9 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
 use zip::ZipArchive;
 
+mod cells;
 mod metadata;
+use cells::parse_worksheet_layout_cells;
 use metadata::workbook_sheets;
 
 #[cfg(test)]
@@ -150,153 +152,6 @@ fn build_xlsx_layout<R: Read + Seek>(
         page_limit: MAX_OFFICE_SHEETS,
         pages,
     }))
-}
-
-fn parse_worksheet_layout_cells(
-    context: &OfficeContext,
-    xml: &str,
-    shared_strings: &[String],
-    metrics: &XlsxSheetMetrics,
-    merge_regions: &BTreeMap<(usize, usize), XlsxMergeRegion>,
-    styles: &[XlsxStyle],
-) -> OfficeResult<Vec<OfficeCellDto>> {
-    let mut reader = Reader::from_str(xml);
-    let mut cells = Vec::new();
-    let mut in_row = false;
-    let mut in_cell = false;
-    let mut in_value = false;
-    let mut in_inline_text = false;
-    let mut display_row = 0usize;
-    let mut row_index = 0usize;
-    let mut next_col = 0usize;
-    let mut cell_col = 0usize;
-    let mut cell_style = 0usize;
-    let mut cell_type = String::new();
-    let mut cell_value = String::new();
-    let mut event_count = 0;
-
-    loop {
-        let event = reader.read_event();
-        event_count += 1;
-        context.check_xml_event(event_count)?;
-        match event {
-            Ok(Event::Start(e)) => {
-                let local = local_xml_name(e.name().as_ref());
-                match local.as_str() {
-                    "row" => {
-                        in_row = true;
-                        display_row += 1;
-                        row_index = attr_value(&e, "r")
-                            .and_then(|v| v.parse::<usize>().ok())
-                            .unwrap_or(display_row)
-                            .saturating_sub(1);
-                        next_col = 0;
-                    }
-                    "c" if in_row => {
-                        in_cell = true;
-                        cell_type.clear();
-                        cell_value.clear();
-                        cell_col = attr_value(&e, "r")
-                            .and_then(|reference| cell_reference_column(&reference))
-                            .unwrap_or(next_col);
-                        next_col = cell_col + 1;
-                        cell_style = attr_value(&e, "s")
-                            .and_then(|value| value.parse::<usize>().ok())
-                            .unwrap_or(0);
-                        cell_type = attr_value(&e, "t").unwrap_or_default();
-                    }
-                    "v" if in_cell => in_value = true,
-                    "t" if in_cell => in_inline_text = true,
-                    _ => {}
-                }
-            }
-            Ok(Event::End(e)) => {
-                let local = local_xml_name(e.name().as_ref());
-                match local.as_str() {
-                    "v" => in_value = false,
-                    "t" => in_inline_text = false,
-                    "c" if in_cell => {
-                        let value = resolve_cell_value(&cell_value, &cell_type, shared_strings);
-                        let merge = merge_regions.get(&(row_index, cell_col));
-                        if merge.is_none()
-                            && is_inside_non_origin_merge(merge_regions, row_index, cell_col)
-                        {
-                            in_cell = false;
-                            continue;
-                        }
-                        if !value.trim().is_empty() && row_index < MAX_OFFICE_ROWS && cell_col < 32
-                        {
-                            let row_span = merge.map(|m| m.row_span).unwrap_or(1);
-                            let column_span = merge.map(|m| m.column_span).unwrap_or(1);
-                            cells.push(OfficeCellDto {
-                                row: row_index,
-                                column: cell_col,
-                                text: clean_table_cell(&value),
-                                x: xlsx_col_x(metrics, cell_col),
-                                y: xlsx_row_y(metrics, row_index),
-                                width: xlsx_col_span_width(
-                                    metrics,
-                                    cell_col,
-                                    cell_col + column_span,
-                                ),
-                                height: xlsx_row_span_height(
-                                    metrics,
-                                    row_index,
-                                    row_index + row_span,
-                                ),
-                                row_span,
-                                column_span,
-                                number_format: styles
-                                    .get(cell_style)
-                                    .and_then(|style| style.number_format.clone()),
-                                fill_color: styles
-                                    .get(cell_style)
-                                    .and_then(|style| style.fill_color.clone()),
-                                text_color: styles
-                                    .get(cell_style)
-                                    .and_then(|style| style.text_color.clone()),
-                                horizontal_alignment: styles
-                                    .get(cell_style)
-                                    .and_then(|style| style.horizontal_alignment.clone()),
-                                vertical_alignment: styles
-                                    .get(cell_style)
-                                    .and_then(|style| style.vertical_alignment.clone()),
-                                bold: styles
-                                    .get(cell_style)
-                                    .map(|style| style.bold)
-                                    .unwrap_or(false),
-                                italic: styles
-                                    .get(cell_style)
-                                    .map(|style| style.italic)
-                                    .unwrap_or(false),
-                                font_size: styles.get(cell_style).and_then(|style| style.font_size),
-                                wrap_text: styles
-                                    .get(cell_style)
-                                    .map(|style| style.wrap_text)
-                                    .unwrap_or(false),
-                            });
-                        }
-                        in_cell = false;
-                    }
-                    "row" => in_row = false,
-                    _ => {}
-                }
-            }
-            Ok(Event::Text(e)) if in_value || in_inline_text => {
-                cell_value.push_str(&xml_unescape_bytes(e.as_ref()))
-            }
-            Ok(Event::GeneralRef(e)) if in_value || in_inline_text => {
-                cell_value.push_str(&xml_general_ref(e.as_ref()))
-            }
-            Ok(Event::CData(e)) if in_value || in_inline_text => {
-                cell_value.push_str(&String::from_utf8_lossy(e.as_ref()))
-            }
-            Ok(Event::Eof) => break,
-            Err(_) => break,
-            _ => {}
-        }
-    }
-    Ok(cells)
 }
 
 #[derive(Clone, Default)]
@@ -1206,7 +1061,9 @@ fn cell_reference_column(reference: &str) -> Option<usize> {
             break;
         }
         saw_letter = true;
-        col = col * 26 + (ch.to_ascii_uppercase() as usize - 'A' as usize + 1);
+        col = col
+            .checked_mul(26)?
+            .checked_add(ch.to_ascii_uppercase() as usize - 'A' as usize + 1)?;
     }
     saw_letter.then_some(col.saturating_sub(1))
 }
@@ -1222,10 +1079,14 @@ fn cell_reference_position(reference: &str) -> Option<(usize, usize)> {
                 return None;
             }
             saw_letter = true;
-            col = col * 26 + (ch.to_ascii_uppercase() as usize - 'A' as usize + 1);
+            col = col
+                .checked_mul(26)?
+                .checked_add(ch.to_ascii_uppercase() as usize - 'A' as usize + 1)?;
         } else if ch.is_ascii_digit() {
             saw_digit = true;
-            row = row * 10 + (ch as usize - '0' as usize);
+            row = row
+                .checked_mul(10)?
+                .checked_add(ch as usize - '0' as usize)?;
         } else if ch == '$' {
             continue;
         } else {

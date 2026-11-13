@@ -74,6 +74,8 @@ $officePresentationPath = Join-Path $Root "native\quicklook_next_native\src\prev
 $officePresentationTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\presentation\tests.rs"
 $officeWorkbookPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\workbook.rs"
 $officeWorkbookTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\workbook\tests.rs"
+$officeWorkbookCellsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\workbook\cells.rs"
+$officeWorkbookCellsTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\workbook\cells\tests.rs"
 $archivePath = Join-Path $Root "native\quicklook_next_native\src\preview\archive\mod.rs"
 $archiveListingPath = Join-Path $Root "native\quicklook_next_native\src\preview\archive\listing.rs"
 $archiveListingTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\archive\listing\tests.rs"
@@ -150,6 +152,8 @@ foreach ($path in @(
         $officePresentationTestsPath,
         $officeWorkbookPath,
         $officeWorkbookTestsPath,
+        $officeWorkbookCellsPath,
+        $officeWorkbookCellsTestsPath,
         $archivePath,
         $archiveListingPath,
         $archiveListingTestsPath,
@@ -228,6 +232,8 @@ if ($failures.Count -eq 0) {
     $officePresentationTestsText = Get-Content -LiteralPath $officePresentationTestsPath -Raw
     $officeWorkbookText = Get-Content -LiteralPath $officeWorkbookPath -Raw
     $officeWorkbookTestsText = Get-Content -LiteralPath $officeWorkbookTestsPath -Raw
+    $officeWorkbookCellsText = Get-Content -LiteralPath $officeWorkbookCellsPath -Raw
+    $officeWorkbookCellsTestsText = Get-Content -LiteralPath $officeWorkbookCellsTestsPath -Raw
     $archiveText = Get-Content -LiteralPath $archivePath -Raw
     $archiveListingText = Get-Content -LiteralPath $archiveListingPath -Raw
     $archiveListingTestsText = Get-Content -LiteralPath $archiveListingTestsPath -Raw
@@ -2097,7 +2103,7 @@ if ($failures.Count -eq 0) {
     foreach ($requiredWorkbook in @(
             'pub\(in crate::preview\) fn render_xlsx(?:<[^>]+>)?\(',
             'fn build_xlsx_layout(?:<[^>]+>)?\(',
-            'fn parse_worksheet_layout_cells\(',
+            'use cells::parse_worksheet_layout_cells;',
             'struct XlsxStyle',
             'struct XlsxSheetMetrics',
             'struct XlsxMergeRegion',
@@ -2115,6 +2121,30 @@ if ($failures.Count -eq 0) {
             'context\.check_xml_event\(event_count\)')) {
         if ($officeWorkbookText -notmatch $requiredWorkbook) {
             $failures.Add("Workbook module lost a bounded parser/layout invariant: $requiredWorkbook")
+        }
+    }
+
+    foreach ($requiredCells in @(
+            'pub\(super\) fn parse_worksheet_layout_cells\(',
+            'BTreeMap::new\(\)',
+            'Ok\(Event::Empty\(e\)\)[\s\S]*CellInput::from_element',
+            'context\.check_xml_event\(event_count\)',
+            'row >= MAX_OFFICE_ROWS[\s\S]*column >= 32',
+            'cells\.insert\(\s*\(row, column\)',
+            'min\(MAX_OFFICE_ROWS - row\)',
+            'min\(32 - column\)')) {
+        if ($officeWorkbookCellsText -notmatch $requiredCells) {
+            $failures.Add("Workbook cell parser lost blank-cell or bounded-retention coverage: $requiredCells")
+        }
+    }
+    foreach ($requiredCellTest in @(
+            'fn blank_self_closing_and_paired_cells_keep_style_and_geometry\(',
+            'fn empty_merged_ranges_keep_one_anchor_and_suppress_interior_placeholders\(',
+            'fn blank_and_duplicate_records_stay_inside_the_existing_cell_budget\(',
+            'fn overflowing_references_do_not_panic_or_create_unbounded_cells\(',
+            'fn blank_cell_parsing_honors_pre_cancellation\(')) {
+        if ($officeWorkbookCellsTestsText -notmatch $requiredCellTest) {
+            $failures.Add("Workbook cell parser regression test is missing: $requiredCellTest")
         }
     }
 
@@ -2193,7 +2223,9 @@ if ($failures.Count -eq 0) {
             $officePresentationText,
             $officePresentationTestsText,
             $officeWorkbookText,
-            $officeWorkbookTestsText)) {
+            $officeWorkbookTestsText,
+            $officeWorkbookCellsText,
+            $officeWorkbookCellsTestsText)) {
         if ($officeModule -match '(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?use\s+[^;\r\n]*::\*[^;\r\n]*;' -or
             $officeModule -match '#\[no_mangle\]' -or
             $officeModule -match 'pub\s+(?:unsafe\s+)?extern\s+"C"') {
@@ -2279,6 +2311,10 @@ if ($failures.Count -eq 0) {
     if ($officeWorkbookTestsLineCount -gt 260) {
         $failures.Add(
             "The focused Office workbook tests grew beyond 260 lines: $officeWorkbookTestsLineCount")
+    }
+    if (@(Get-Content -LiteralPath $officeWorkbookCellsPath).Count -gt 350 -or
+        @(Get-Content -LiteralPath $officeWorkbookCellsTestsPath).Count -gt 220) {
+        $failures.Add("Keep the focused workbook cell parser/tests within 350/220 lines.")
     }
     $officeLayoutLineCount = @(Get-Content -LiteralPath $officeLayoutPath).Count
     if ($officeLayoutLineCount -gt 260) {

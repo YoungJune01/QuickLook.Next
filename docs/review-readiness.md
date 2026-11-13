@@ -133,7 +133,8 @@ XLSX with a 72,826,633-byte worksheet XML part, above the 16 MiB per-sheet cap.
 The rebuilt DLL's `ql_preview_office_handle` returned `-9` (`LimitExceeded`)
 against the exact file HANDLE in 14 ms. The source length and write timestamp
 were unchanged. The file, its cells, name, and path are not included in the
-repository. Interactive acceptance is pending.
+repository. The owner subsequently confirmed the oversized-file prompt works;
+wider error-to-content switching cases remain separate checklist items.
 
 The pinned native MSBuild build and managed Release build passed with zero
 warnings/errors. Format/Clippy passed; Rust tests passed 382 with one existing
@@ -149,6 +150,46 @@ passed, including the extended size-limit error UI checks.
 The verified 185-file local payload is under
 `artifacts/local-preview-20261113-workbook-limits/`. Its native DLL SHA-256 is
 `8C8594CC2C6C9EE7F8FDBCC517244FC92EB4007ABB1E9472A8314ECBE76365F7`.
+
+## 2026-11-13 local fork: preserve blank worksheet cells
+
+The workbook layout reader previously emitted only nonempty paired `<c>`
+elements and ignored self-closing cells. Read-only inspection of the reported
+four-sheet workbook confirmed 62 self-closing blank records in its fourth sheet,
+including G4:I8. Those cells carry styles and belong to the table, so omitting
+them removed its visible grid from the right-hand side.
+
+The focused Rust `workbook/cells.rs` parser now preserves both paired and
+self-closing blank cells with their geometry and existing presentation styles.
+Empty merged ranges retain a single anchor, including producers that omit that
+anchor's cell element; interior placeholders are suppressed. No rectangle is
+expanded merely from a worksheet dimension hint. The App continues to render
+the same structured cell contract.
+
+A coordinate-keyed map deduplicates cells within the existing 48-row/32-column
+window. Merge spans are clipped to that same window, reference arithmetic uses
+checked operations, and cancellation remains checked during XML scans and merge
+completion. Eight focused regressions cover blank styles/geometry, implicit
+coordinates, empty merges, sparse dimensions, duplicates, limits, hostile
+references, and cancellation. Module guards now follow the extracted parser and
+its tests; existing module limits remain unchanged.
+
+A read-only exported HANDLE probe against the owner's file compared the prior
+and rebuilt DLLs without printing or saving cell content. The fourth sheet's
+G4:I8 region changed from zero retained cells to all 15 empty cells with positive
+geometry. Its total cell count changed from 37 to 63, including 26 empty cells;
+all four sheets remain represented. Source length/write time were unchanged.
+The workbook and its private contents are not committed. Interactive acceptance
+remains with the owner.
+
+The pinned native MSBuild build and managed Release build passed with zero
+warnings/errors. Format/Clippy passed; Rust tests passed 390 with one existing
+ignored corpus test. All 557 managed tests passed (Core 420, ParserHost 52,
+RasterHost 72, ShellBroker 13). The full architecture `-SkipDist` gate passed.
+The 185-file local payload was assembled and its
+copy hashes verified in `artifacts/local-preview-20261113-workbook-blanks/`;
+the stable local launcher now points there. Native DLL SHA-256:
+`3B2FDA3A7E2C4BFAD201F2717F8789521837E9F085AFBAD87B908D6DCABD0DFA`.
 
 ## Current Verification And Priority
 

@@ -11,6 +11,7 @@
 - 第一轮修改位于 `fix/desktop-and-explorer-tabs` 分支；Excel 预览修复位于
   基于它创建的 `fix/workbook-preview-layout` 分支。
 - 大文件超限提示在其后的 `fix/workbook-preview-limits` 分支维护。
+- 空白单元格显示修复在其后的 `fix/workbook-empty-cells` 分支维护。
 - 原有 `AGENTS.md` 保持不变。构建产物、工具下载和测试证据放在已忽略的
   `artifacts/`，不提交证书、日志及私人样本。
 - 建立自己的 GitHub Fork 后，应从 Fork 克隆保留上游历史的正式工作副本，
@@ -43,12 +44,13 @@ pwsh -NoProfile -File .\build.ps1 -Test
 三个宿主，不能只复制或单独启动 App 编译目录。
 
 本次使用项目已有的 `tools/release-payload.ps1` 组装了本地测试目录
-`artifacts/local-preview-20261113-workbook-limits/`，包含 App、宿主、许可及第三方声明，并核对
+`artifacts/local-preview-20261113-workbook-blanks/`，包含 App、宿主、许可及第三方声明，并核对
 了复制前后的文件哈希。退出其他 QuickLook 实例后，双击
 `artifacts/Start-MyQuickLook.cmd` 启动。本地入口与测试目录均不提交到 Git。
 重新编译后需要重新组装测试目录；它不会自动使用新的编译输出。
 原来的 `artifacts/local-preview-20261113/` 保留为第一轮修复的回退版本。
 `artifacts/local-preview-20261113-workbook/` 保留为工作表布局修复的回退版本。
+`artifacts/local-preview-20261113-workbook-limits/` 保留为超限提示修复的回退版本。
 
 ## 第一轮问题与验收
 
@@ -80,7 +82,11 @@ pwsh -NoProfile -File .\build.ps1 -Test
 显示“文件过大，无法预览”，可点击“打开文件”查看完整数据。工作表及共享字符串
 各保留 16 MiB 的解压后大小限制，不以五万行作为拒绝阈值；体积较小的五万行
 工作簿仍可预览前 48 行。已只读确认用户报告的文件内部工作表约 69.5 MiB，
-触发该限制；新原生接口对原文件返回明确的超限状态，界面验收待用户测试。
+触发该限制；新原生接口对原文件返回明确的超限状态，用户已确认提示生效。
+
+空白格修复保留表格中没有文字的单元格及空白合并区域，避免右侧待填写区域
+失去网格。只保留文件中实际存在的单元格和合并区域，仍限制在原有的预览范围内。
+用户原文件只读检查，私人内容不提交到仓库；本轮界面效果仍由用户验收。
 
 交互操作见 [`desktop-regression-checklist.md`](desktop-regression-checklist.md)。
 每个后续问题记录复现步骤、预期/实际结果、最小测试样本和验证结果，完成一个
