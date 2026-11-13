@@ -21,20 +21,15 @@ public static class DiagLog
     private static Task? _writerTask;
 
     /// <summary>
-    /// Per-user writable log directory. Must NOT be the app's base directory: when packaged as MSIX the
-    /// install dir (<c>Program Files\WindowsApps\…</c>) is read-only, so writes there fail silently and we
-    /// get no log. <see cref="Environment.SpecialFolder.LocalApplicationData"/> is writable in both the
-    /// packaged and unpackaged cases.
+    /// Portable deployments keep logs in Data; other deployments retain per-user writable logs.
     /// </summary>
-    public static string LogDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "QuickLookNext", "logs");
+    public static string LogDirectory => AppStorage.Current.LogDirectory;
 
     /// <summary>Begin a fresh log. <paramref name="file"/> may be a full path or bare name; only the file
     /// name is used — the log always lands in <see cref="LogDirectory"/>.</summary>
     public static void Init(string file)
     {
-        try { Directory.CreateDirectory(LogDirectory); } catch { /* ignore */ }
+        try { AppStorage.Current.EnsureDirectory(LogDirectory); } catch { return; }
         _path = Path.Combine(LogDirectory, Path.GetFileName(file));
         PreservePreviousSession(_path);
         EnsureWriterStarted();

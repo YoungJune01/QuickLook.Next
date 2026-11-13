@@ -32,9 +32,9 @@ internal sealed class ShellBrokerSupervisor(string brokerExePath)
             string pipeName = $"quicklook_next_shell_{Environment.ProcessId}_{RandomNumberGenerator.GetHexString(16)}";
             string sessionToken = RandomNumberGenerator.GetHexString(32);
             _writableRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "QuickLookNext", "ShellBroker", "work", "broker-" + RandomNumberGenerator.GetHexString(16).ToLowerInvariant());
-            Directory.CreateDirectory(_writableRoot);
+                AppStorage.Current.ShellWorkDirectory,
+                "broker-" + RandomNumberGenerator.GetHexString(16).ToLowerInvariant());
+            AppStorage.Current.EnsureDirectory(_writableRoot);
             HostProcessLauncher.GrantRestrictedWriteAccess(_writableRoot);
             _server = HostProcessLauncher.CreateWriteRestrictedPipe(pipeName);
             var job = new HostProcessJob((nint)(256L * 1024 * 1024));

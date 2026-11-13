@@ -18,6 +18,23 @@ public static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        try { AppStorage.Current.ConfigureProcessEnvironment(); }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Portable data directory is unavailable: " + ex.GetType().Name);
+            if (!args.Any(arg => arg.StartsWith("--smoke-", StringComparison.Ordinal)))
+                _ = MessageBox(0, System.Globalization.CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
+                    ? "无法写入便携版 Data 目录。请将完整文件夹移动到可写位置，且不要将 Data 或其子目录链接到其他位置。"
+                    : "Cannot write portable Data. Move the complete folder to a writable location and keep Data and its subfolders inside the package.",
+                    "QuickLook Next", 0x10);
+            Environment.ExitCode = 32;
+            return;
+        }
+        if (args is ["--smoke-portable"])
+        {
+            Environment.ExitCode = PortableStorageSmoke.Run();
+            return;
+        }
         _ = SetProcessDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         AppStartupTiming.Start();
         if (args is ["--restricted-host-probe-child", var allowedProbeRoot, var deniedProbeRoot, var deniedProfileRoot, var probePipeName])
@@ -245,4 +262,7 @@ public static class Program
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetProcessDpiAwarenessContext(nint value);
+
+    [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode)]
+    private static extern int MessageBox(nint owner, string text, string caption, uint type);
 }

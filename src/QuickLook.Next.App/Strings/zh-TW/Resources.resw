@@ -1080,4 +1080,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>診斷資訊已複製。</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>檔案過大，無法預覽</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此檔案的資料量或解壓縮後的內容超出預覽限制。請按一下「開啟檔案」，使用關聯應用程式查看完整內容。</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>便攜模式不啟用開機自動啟動，避免寫入登錄與系統啟動目錄。</value></data>
 </root>

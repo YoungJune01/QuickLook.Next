@@ -69,6 +69,42 @@ Logs are retained under `artifacts/cleanup-*.log`; payload/source checks are in
 This measures source-tree contents, excluding Git history, build caches, tools,
 and preserved local payloads. Cleanup does not claim a new installation or UI run.
 
+## Portable deployment: 2026-11-13
+
+`portable.mode` opts into package-local `Data/` for settings, welcome state, logs,
+PDF cache, temporary files, and per-host work. Installed/development storage
+locations are preserved. Startup refuses unwritable or redirected portable data
+instead of falling back to the profile. Portable startup controls are disabled;
+no startup registry or shortcut operations run. Host restrictions, local write
+grants, HANDLE ownership, cancellation, and parser budgets are retained.
+
+`tools/pack-portable.ps1` uses the tested release-payload proof and adds one shared
+.NET 10.0.10 x64 runtime plus app-local Visual C++ libraries and their notices.
+Windows App SDK was already self-contained in the App output. The portable
+runtime-inclusive budget is 350 MiB; the ordinary release budget is unchanged.
+The delivery root has an empty Data directory, a file-hash manifest, ZIP, and
+SHA-256 sidecar. No developer SDK, certificate, or private workbook is bundled.
+
+Verification passed on 2026-11-13:
+
+| Check | Result |
+|---|---|
+| Rust format / locked all-target, all-feature Clippy / tests | Passed; 390 tests, one pre-existing ignored |
+| Native MSBuild / managed Release | Passed; no managed warnings or errors |
+| Serialized .NET tests | 567 passed: Core 430 (10 new storage cases), ParserHost 52, RasterHost 72, ShellBroker 13 |
+| Full architecture `-SkipDist` | Passed, including compiled mutations, restricted-host launch, image corpus and UI contracts |
+| Localization | Three locales, 485 keys, placeholders in parity |
+| Extracted portable package | Hashes/checksum passed; Chinese/space/ampersand path; developer PATH removed; runtime resolves inside package; zero SDKs exposed |
+| Portable runtime behavior | WinUI resources, actual ParserHost HANDLE preview, RasterHost authentication, ShellBroker thumbnail, settings/state/logs/cache/temp paths passed |
+| Storage boundaries | Redirected Data rejected before writes; existing profile files and startup configuration unchanged during smoke checks |
+
+Logs are retained in `artifacts/portable-*.log`; reproducible package checks use
+`tools/test-portable-package.ps1`. This verifies isolation on the development
+computer, not a run on another physical computer. GUI acceptance on the final
+portable build remains with the owner. See [portable.md](portable.md) and
+[ADR-0005](adr/0005-portable-storage.md). Windows-managed history and optional
+system codecs remain outside application storage ownership.
+
 ## Runtime and delivery boundaries
 
 Rust owns probing and bounded structured parsing. WinUI owns presentation and
@@ -77,7 +113,7 @@ raster surfaces, and ShellBroker owns explicit Shell compatibility. See
 [AGENTS.md](../AGENTS.md), [ADRs](adr/README.md), and
 [HANDLE input details](handle-based-preview-inputs.md).
 
-The current tested payload remains
+The retained owner-accepted payload is
 `artifacts/local-preview-20261113-workbook-blanks/`, with 185 files and a verified
 copy manifest. Launcher: `artifacts/Start-MyQuickLook.cmd`. Native DLL SHA-256:
 `3B2FDA3A7E2C4BFAD201F2717F8789521837E9F085AFBAD87B908D6DCABD0DFA`.

@@ -89,6 +89,7 @@ internal static class UiStrings
     public static string SettingsGeneralDescription => Get(nameof(SettingsGeneralDescription));
     public static string SettingsAutoStart => Get(nameof(SettingsAutoStart));
     public static string SettingsAutoStartDescription => Get(nameof(SettingsAutoStartDescription));
+    public static string PortableAutoStartDescription => Get(nameof(PortableAutoStartDescription));
     public static string SettingsWindowLevel => Get(nameof(SettingsWindowLevel));
     public static string SettingsWindowLevelDescription => Get(nameof(SettingsWindowLevelDescription));
     public static string SettingsWindowLevelStandard => Get(nameof(SettingsWindowLevelStandard));

@@ -21,11 +21,13 @@ internal static class AutoStart
 
     // ── Packaged detection (cached) ──
     private static readonly bool _isPackaged = DetectPackaged();
+    public static bool IsSupported => !AppStorage.Current.IsPortable;
 
     // ───────────────────────────────────────────── public API ─────────────────────────────────────────────
 
     public static async Task<bool> IsEnabledAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsSupported) return false;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -49,6 +51,7 @@ internal static class AutoStart
         bool enabled,
         CancellationToken cancellationToken = default)
     {
+        if (!IsSupported) return !enabled;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -72,6 +75,7 @@ internal static class AutoStart
 
     public static async Task RepairIfConfiguredAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsSupported) return;
         // Packaged apps manage their own state via the StartupTask API — no repair needed.
         if (_isPackaged)
             return;

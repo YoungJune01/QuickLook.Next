@@ -488,4 +488,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>诊断信息已复制。</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>文件过大，无法预览</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此文件的数据量或解压后的内容超出预览限制。请点击“打开文件”，使用关联应用查看完整内容。</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>便携模式不启用开机自启，避免写入注册表和系统启动目录。</value></data>
 </root>

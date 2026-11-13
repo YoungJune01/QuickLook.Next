@@ -1,0 +1,13 @@
+Bundled runtime components
+
+QuickLook Next's MIT license does not replace the licenses of these components.
+
+.NET runtime: Runtime/LICENSE.txt and Runtime/ThirdPartyNotices.txt.
+Application dependencies, including Windows App SDK: THIRD-PARTY-NOTICES.txt.
+Visual C++ runtime DLLs in App/, App/ParserHost/, and App/RasterHost/ are
+Microsoft redistributable components supplied with Visual Studio 2022 Build Tools.
+Their distribution is governed by Microsoft's applicable Visual Studio license
+and redistributable-code terms, not QuickLook Next's MIT grant. The vendor's
+redistribution reference is retained as Licenses/VisualCpp-Redistribution.txt.
+
+Preserve these notices when copying the portable folder.

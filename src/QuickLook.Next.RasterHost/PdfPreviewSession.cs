@@ -313,7 +313,7 @@ internal sealed class PdfPreviewSession : IAsyncDisposable
         string? temporaryPath = null;
         try
         {
-            Directory.CreateDirectory(DiskCacheDirectory);
+            AppStorage.Current.EnsureDirectory(DiskCacheDirectory);
             string path = DiskCachePath(write.Key);
             long previousLength = 0;
             try { previousLength = new FileInfo(path).Length; } catch { }
@@ -351,10 +351,7 @@ internal sealed class PdfPreviewSession : IAsyncDisposable
         }
     }
 
-    private static string DiskCacheDirectory => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "QuickLook.Next",
-        "pdf-page-cache");
+    private static string DiskCacheDirectory => AppStorage.Current.PdfCacheDirectory;
 
     private static string DiskCachePath(string key)
     {

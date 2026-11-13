@@ -191,7 +191,8 @@ internal sealed class TrayIconManager
         {
             AppendMenu(menu, MF_STRING, TrayCommandShowPreview, UiStrings.TrayShowPreview);
             AppendMenu(menu, MF_STRING, TrayCommandSettings, UiStrings.TraySettings);
-            AppendMenu(menu, MF_STRING | (autoStartEnabled ? MF_CHECKED : MF_UNCHECKED), TrayCommandAutoStart, UiStrings.TrayAutoStart);
+            AppendMenu(menu, MF_STRING | (autoStartEnabled ? MF_CHECKED : MF_UNCHECKED)
+                | (AutoStart.IsSupported ? 0u : MF_GRAYED), TrayCommandAutoStart, UiStrings.TrayAutoStart);
             AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, string.Empty);
             AppendMenu(menu, MF_STRING, TrayCommandExit, UiStrings.TrayExit);
 
@@ -295,6 +296,7 @@ internal sealed class TrayIconManager
     private const uint LR_LOADFROMFILE = 0x00000010;
     private const uint LR_DEFAULTSIZE = 0x00000040;
     private const uint MF_STRING = 0x00000000;
+    private const uint MF_GRAYED = 0x00000001;
     private const uint MF_CHECKED = 0x00000008;
     private const uint MF_UNCHECKED = 0x00000000;
     private const uint MF_SEPARATOR = 0x00000800;

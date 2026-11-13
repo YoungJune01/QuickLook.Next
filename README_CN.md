@@ -8,8 +8,10 @@
 
 ## 启动与开发
 
-本机双击 `artifacts/Start-MyQuickLook.cmd` 启动，先退出其他 QuickLook 实例。
-该入口使用独立的完整测试包，重新编译源码不会自动更新它；回退方法见维护指南。
+换电脑使用时，将完整便携 ZIP 解压到可写文件夹，双击 `Start.cmd`；
+运行时随包携带，应用数据保存在包内 `Data/`。详见[便携版说明](docs/portable.md)。
+先退出其他 QuickLook 实例。原 `artifacts/Start-MyQuickLook.cmd` 保留用于回退；
+重新编译源码不会自动更新已有测试包。
 
 需要 Windows、固定版本 .NET SDK、Rust MSVC 工具链、Desktop C++ 与 Windows SDK，
 具体要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。在仓库根目录运行：
@@ -27,7 +29,8 @@ pwsh -NoProfile -File build.ps1 -Test
 pwsh -NoProfile -File tools/release.ps1 -SkipPackage
 ```
 
-`tools/pack-release.ps1` 可组装便携 ZIP，包含 App、三个宿主、许可和第三方声明。
+`tools/pack-portable.ps1` 从已验证输出组装完整便携 ZIP；
+`tools/pack-release.ps1` 组装基础发布材料。两者均保留许可和第三方声明。
 `packaging/` 与相关脚本保留可选的签名 MSIX 侧载安装能力，需要自己的签名配置。
 日常本地运行不需要商店认证、Partner Center 配置或导入证书。
 

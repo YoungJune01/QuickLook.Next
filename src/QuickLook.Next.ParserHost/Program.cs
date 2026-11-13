@@ -12,6 +12,7 @@ if (!Path.IsPathFullyQualified(writableRoot) || !Directory.Exists(writableRoot)
     || (File.GetAttributes(writableRoot) & FileAttributes.ReparsePoint) != 0) return;
 string logRoot = Path.Combine(writableRoot, "logs");
 if (!Directory.Exists(logRoot) || (File.GetAttributes(logRoot) & FileAttributes.ReparsePoint) != 0) return;
+AppStorage.ConfigureTemporaryDirectory(Path.Combine(writableRoot, "temp"));
 
 DiagLog.InitInDirectory(logRoot, "parser-host.log");
 DiagLog.Write("ParserHost", $"start pid={Environment.ProcessId} pipe={pipeName}");

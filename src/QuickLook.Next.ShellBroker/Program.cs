@@ -22,6 +22,7 @@ catch (Exception ex)
     try { File.WriteAllText(Path.Combine(writableRoot, "startup-failure.txt"), ex.ToString()); } catch { }
     return;
 }
+AppStorage.ConfigureTemporaryDirectory(Path.Combine(writableRoot, "temp"));
 DiagLog.InitInDirectory(writableRoot, "shell-broker.log");
 DiagLog.Write("ShellBroker", $"start pid={Environment.ProcessId} pipe={pipeName}");
 using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.None);

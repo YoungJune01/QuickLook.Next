@@ -6,15 +6,17 @@
 
 ## 当前使用入口
 
+- 换电脑使用完整便携包的 `Start.cmd`：运行时随包，设置及缓存等位于 `Data/`。
+  使用和重新打包见[便携版说明](portable.md)，旧测试包仍保留用于回退。
 - 双击本机的 `artifacts/Start-MyQuickLook.cmd`，当前启动
   `artifacts/local-preview-20261113-workbook-blanks/`。先退出其他 QuickLook 实例。
 - 当前功能基线为 `38271f4`，保留于 `fix/workbook-empty-cells`；下表修复依次叠加。
   项目精简工作位于其后的 `chore/slim-local-maintenance` 分支。
 - 2026-11-13，用户已确认全部已报告核心场景通过。反复切换、无选中项、主题等
   组合场景仍按[交互回归清单](desktop-regression-checklist.md)单独记录。
-- 最新代码验证基线：Rust 390 项通过、1 项原有忽略；.NET 557 项通过；Release
+- 最新便携代码验证：Rust 390 项通过、1 项原有忽略；.NET 567 项通过；Release
   构建零警告、零错误；格式、Clippy 和完整架构检查通过。
-  项目精简后的独立验证结果见 [review-readiness.md](review-readiness.md)。
+  精简及便携模式的独立验证结果见 [review-readiness.md](review-readiness.md)。
 
 ## 已完成修复
 

@@ -650,4 +650,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostics copied.</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>File exceeds preview limits</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>This file contains too much data or its decompressed content exceeds preview limits. Use Open File to view the full contents in its associated app.</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>Disabled in portable mode to keep startup settings and files on this drive.</value></data>
 </root>

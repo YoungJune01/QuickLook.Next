@@ -9,9 +9,11 @@ have passed owner acceptance.
 
 ## Run and build
 
-The existing local launcher is `artifacts/Start-MyQuickLook.cmd`. Exit other
-QuickLook instances first. It runs a complete App/host payload; rebuilding
-source does not automatically update that payload.
+For another Windows x64 computer, extract the complete portable ZIP and run
+`Start.cmd`. It carries its runtime and keeps application data in `Data/`.
+See [portable use and packaging](docs/portable.md). Exit other QuickLook instances
+first. The previous local launcher, `artifacts/Start-MyQuickLook.cmd`, is retained
+for rollback; rebuilding source does not automatically update existing packages.
 
 On Windows, prepare the pinned .NET SDK, Rust MSVC toolchain, Desktop C++ tools,
 and Windows SDK described in [CONTRIBUTING.md](CONTRIBUTING.md), then run:
@@ -28,8 +30,9 @@ For full release checks without signing or installation:
 pwsh -NoProfile -File tools/release.ps1 -SkipPackage
 ```
 
-`tools/pack-release.ps1` assembles a portable ZIP; it retains the App, all three
-hosts, licenses, and notices. Optional signed MSIX sideload tooling remains in
+`tools/pack-portable.ps1` builds the complete portable ZIP from tested outputs;
+`tools/pack-release.ps1` assembles the base release payload. Both retain licenses
+and notices. Optional signed MSIX sideload tooling remains in
 `packaging/` and `tools/`; it needs your own signing setup. No Store submission,
 certification, or Partner Center configuration is required for local use.
 

@@ -1,10 +1,11 @@
+using QuickLook.Next.Core;
+
 namespace QuickLook.Next.App;
 
 internal static class FirstRunExperience
 {
     private static readonly string MarkerPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "QuickLookNext",
+        AppStorage.Current.StateDirectory,
         "welcome-shown-v1");
 
     public static bool ShouldShow => !File.Exists(MarkerPath);
@@ -13,7 +14,7 @@ internal static class FirstRunExperience
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(MarkerPath)!);
+            AppStorage.Current.EnsureDirectory(Path.GetDirectoryName(MarkerPath)!);
             File.WriteAllText(MarkerPath, DateTimeOffset.UtcNow.ToString("O"));
         }
         catch

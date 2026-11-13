@@ -474,7 +474,7 @@ internal sealed class ParserHostSupervisor
     private static ArchiveEntryHandoff CreateArchiveEntryOutput(string requestId, string entryPath)
     {
         string requestDirectory = Path.Combine(
-            Path.GetTempPath(),
+            AppStorage.Current.TemporaryDirectory,
             "QuickLookNext",
             "app-preview",
             requestId);
@@ -488,7 +488,7 @@ internal sealed class ParserHostSupervisor
         try
         {
             string root = Path.GetDirectoryName(requestDirectory)!;
-            Directory.CreateDirectory(root);
+            AppStorage.Current.EnsureDirectory(root);
             if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Archive output root cannot be a reparse point.");
             Directory.CreateDirectory(requestDirectory);
@@ -833,11 +833,11 @@ internal sealed class ParserHostSupervisor
 
     private static string CreateWritableRoot()
     {
-        string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "QuickLookNext", "ParserHost", "work", "host-" + RandomNumberGenerator.GetHexString(16).ToLowerInvariant());
+        string root = Path.Combine(AppStorage.Current.ParserWorkDirectory,
+            "host-" + RandomNumberGenerator.GetHexString(16).ToLowerInvariant());
         try
         {
-            Directory.CreateDirectory(root);
+            AppStorage.Current.EnsureDirectory(root);
             HostProcessLauncher.GrantRestrictedWriteAccess(root);
             foreach (string child in new[] { "logs" })
                 Directory.CreateDirectory(Path.Combine(root, child));

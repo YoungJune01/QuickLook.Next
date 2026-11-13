@@ -93,7 +93,7 @@ public sealed partial class SettingsWindow : Window
         {
             _initializing = false;
             _autoStartBusy = false;
-            AutoStartToggle.IsEnabled = true;
+            AutoStartToggle.IsEnabled = AutoStart.IsSupported;
         }
     }
 
@@ -104,7 +104,9 @@ public sealed partial class SettingsWindow : Window
         GeneralHeading.Text = UiStrings.SettingsGeneral;
         GeneralDescription.Text = UiStrings.SettingsGeneralDescription;
         AutoStartTitle.Text = UiStrings.SettingsAutoStart;
-        AutoStartDescription.Text = UiStrings.SettingsAutoStartDescription;
+        AutoStartDescription.Text = AutoStart.IsSupported
+            ? UiStrings.SettingsAutoStartDescription
+            : UiStrings.PortableAutoStartDescription;
         WindowLevelTitle.Text = UiStrings.SettingsWindowLevel;
         WindowLevelDescription.Text = UiStrings.SettingsWindowLevelDescription;
         StandardWindowLevelItem.Content = UiStrings.SettingsWindowLevelStandard;
@@ -271,7 +273,7 @@ public sealed partial class SettingsWindow : Window
         {
             _initializing = false;
             _autoStartBusy = false;
-            AutoStartToggle.IsEnabled = true;
+            AutoStartToggle.IsEnabled = AutoStart.IsSupported;
         }
     }
 

@@ -15,9 +15,7 @@ internal sealed record AppSettings(
     bool ClosePreviewOnFocusLoss = false)
 {
     public const int CurrentSchemaVersion = 4;
-    private static readonly string SettingsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "QuickLook.Next");
+    private static readonly string SettingsDirectory = AppStorage.Current.SettingsDirectory;
     private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "settings.json");
 
     public static AppSettings Current { get; private set; } = Load();
@@ -73,7 +71,7 @@ internal sealed record AppSettings(
     {
         try
         {
-            Directory.CreateDirectory(SettingsDirectory);
+            AppStorage.Current.EnsureDirectory(SettingsDirectory);
             updated = updated with { SchemaVersion = CurrentSchemaVersion };
             string temporaryPath = SettingsPath + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
             try
