@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://sherlockchiang.github.io/QuickLook.Next/sitemap.xml

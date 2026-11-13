@@ -6,7 +6,6 @@ $ErrorActionPreference = "Stop"
 $ci = Get-Content -LiteralPath (Join-Path $Root ".github\workflows\ci.yml") -Raw
 $stable = Get-Content -LiteralPath (Join-Path $Root ".github\workflows\release.yml") -Raw
 $beta = Get-Content -LiteralPath (Join-Path $Root ".github\workflows\beta-release.yml") -Raw
-$store = Get-Content -LiteralPath (Join-Path $Root ".github\workflows\store-package.yml") -Raw
 $packageActionPath = Join-Path $Root ".github\actions\package-release\action.yml"
 $legacyPackageWorkflowPath = Join-Path $Root ".github\workflows\package-release.yml"
 if (-not (Test-Path -LiteralPath $packageActionPath)) {
@@ -16,7 +15,6 @@ if (Test-Path -LiteralPath $legacyPackageWorkflowPath) {
     throw "Release packaging must not use a reusable workflow that hides Environment secrets."
 }
 $packageAction = Get-Content -LiteralPath $packageActionPath -Raw
-$pages = Get-Content -LiteralPath (Join-Path $Root ".github\workflows\pages.yml") -Raw
 $dependabot = Get-Content -LiteralPath (Join-Path $Root ".github\dependabot.yml") -Raw
 $packMsix = Get-Content -LiteralPath (Join-Path $Root "tools\pack-msix.ps1") -Raw
 
@@ -47,10 +45,8 @@ if ($ci -notmatch '(?ms)^on:\s*.*?push:\s*\r?\n\s+branches:\s*\[main\]') {
     throw "CI must verify every push to main independently from release publication."
 }
 if ($ci -notmatch 'tools/test-nuget-vulnerabilities\.ps1' -or
-    $ci -notmatch 'cargo install cargo-audit --version 0\.22\.2 --locked --force[\s\S]*cargo audit --file native/Cargo\.lock' -or
-    $ci -notmatch 'npm ci && npm audit' -or
-    $ci -notmatch 'working-directory:\s+website[\s\S]*npm run build') {
-    throw "Pull-request CI must audit NuGet, Cargo, and npm dependencies and build the website."
+    $ci -notmatch 'cargo install cargo-audit --version 0\.22\.2 --locked --force[\s\S]*cargo audit --file native/Cargo\.lock') {
+    throw "Pull-request CI must audit NuGet and Cargo dependencies."
 }
 if ($packageAction -notmatch "cargo-audit 0\\\.22\\\.2" -or
     $packageAction -notmatch 'cargo install cargo-audit --version 0\.22\.2 --locked --force' -or
@@ -61,25 +57,21 @@ if ($packageAction -notmatch "cargo-audit 0\\\.22\\\.2" -or
 if ($stable -notmatch "startsWith\(github\.event\.head_commit\.message, 'release:'\)") {
     throw "Stable releases must require an explicit release: commit."
 }
-if ($store -notmatch '(?ms)^on:\s*\r?\n\s+workflow_dispatch:' -or
-    $store -match '(?m)^\s+push:' -or
-    $store -notmatch 'pack-store-msix\.ps1' -or
-    $store -notmatch 'MICROSOFT_STORE_PACKAGE_IDENTITY_NAME' -or
-    $store -notmatch 'MICROSOFT_STORE_PUBLISHER' -or
-    $store -notmatch 'MICROSOFT_STORE_PUBLISHER_DISPLAY_NAME' -or
-    $store -notmatch 'actions/attest-build-provenance@[0-9a-f]{40}' -or
-    $store -notmatch 'actions/upload-artifact@[0-9a-f]{40}' -or
-    $store -notmatch 'artifacts/QuickLook\.Next-Store-\*\.msixupload') {
-    throw "The manual Microsoft Store candidate workflow is incomplete."
+foreach ($retiredPath in @(
+    '.github/workflows/store-package.yml',
+    '.github/workflows/pages.yml',
+    'tools/pack-store-msix.ps1',
+    'tools/resolve-store-msix-version.ps1',
+    'website',
+    'plugins'
+)) {
+    if (Test-Path -LiteralPath (Join-Path $Root $retiredPath)) {
+        throw "Retired distribution/reference material must stay outside this maintenance tree: $retiredPath"
+    }
 }
-if ($store -match '(?i)QUICKLOOK_RELEASE_PFX|CertificatePassword|\.pfx|signtool') {
-    throw "Microsoft Store candidates must not depend on the sideload signing certificate."
-}
-if ($store -notmatch '(?m)^\s+timeout-minutes:\s+60\s*$' -or
-    $store -notmatch 'dotnet-version:\s+10\.0\.302' -or
-    $store -notmatch 'toolchain:\s+1\.96\.0' -or
-    $store -notmatch 'components:\s*rustfmt,\s*clippy') {
-    throw "Microsoft Store candidates must retain the pinned toolchain and release budget."
+if ($ci -match '(?i)npm|website|MICROSOFT_STORE_' -or
+    $dependabot -match 'package-ecosystem:\s*npm') {
+    throw "CI and dependency updates must target only retained application components."
 }
 if ($stable -notmatch 'uses:\s+\./\.github/actions/package-release' -or
     $beta -notmatch 'uses:\s+\./\.github/actions/package-release') {
@@ -181,7 +173,7 @@ foreach ($workflow in @($stable, $beta)) {
         throw "Stable and beta releases must attest and publish release metadata."
     }
 }
-foreach ($workflow in @($ci, $stable, $beta, $store, $packageAction, $pages)) {
+foreach ($workflow in @($ci, $stable, $beta, $packageAction)) {
     if ($workflow -match 'uses:\s+actions/[^@\s]+@v\d') {
         throw "Official actions must remain pinned to immutable commit SHAs."
     }

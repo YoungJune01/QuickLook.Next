@@ -129,14 +129,11 @@ Assert-Matches $protocolText 'at most one terminal Host message[\s\S]*client can
 Assert-Matches $pendingText 'at most one terminal Host message[\s\S]*Cancellation removes' `
     "Pending-request comments must describe cancellation separately from Host errors."
 
-$roadmapText = @(
-    Get-Content -LiteralPath (Join-Path $Root "docs/post-office-roadmap.md") -Raw
-    Get-Content -LiteralPath (Join-Path $Root "docs/prd-next-preview-optimization.md") -Raw
-) -join [Environment]::NewLine
-Assert-True ($roadmapText -notmatch 'RasterHost[^\r\n]*(?:shell|Shell)[^\r\n]*thumbnail') `
-    "Historical roadmaps must not assign Shell thumbnails to RasterHost."
-Assert-Matches $roadmapText 'ShellBroker[\s\S]*Shell thumbnail compatibility' `
-    "Historical roadmaps must point Shell thumbnail compatibility to ShellBroker."
+$maintenancePlan = Get-Content -LiteralPath (Join-Path $Root "docs/implementation-todo.md") -Raw
+Assert-True ($maintenancePlan -notmatch 'RasterHost[^\r\n]*(?:shell|Shell)[^\r\n]*thumbnail') `
+    "The maintenance plan must not assign Shell thumbnails to RasterHost."
+Assert-Matches $maintenancePlan 'ShellBroker[\s\S]*Shell thumbnail compatibility' `
+    "The maintenance plan must keep Shell thumbnail compatibility in ShellBroker."
 
 $contributingText = Get-Content -LiteralPath (Join-Path $Root "CONTRIBUTING.md") -Raw
 $readmeText = Get-Content -LiteralPath (Join-Path $Root "README.md") -Raw

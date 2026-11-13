@@ -129,12 +129,8 @@ foreach ($projectReadme in @($readmePath, $readmeChinesePath)) {
 }
 $directoryBuildProps = Get-Content -LiteralPath (Join-Path $Root "Directory.Build.props") -Raw
 $cargoManifest = Get-Content -LiteralPath (Join-Path $Root "native/quicklook_next_native/Cargo.toml") -Raw
-$websitePackage = Get-Content -LiteralPath (Join-Path $Root "website/package.json") -Raw
-$websitePackageLock = Get-Content -LiteralPath (Join-Path $Root "website/package-lock.json") -Raw
 if ($directoryBuildProps -notmatch '<PackageLicenseExpression>MIT</PackageLicenseExpression>' -or
-    $cargoManifest -notmatch '(?m)^license\s*=\s*"MIT"\s*$' -or
-    $websitePackage -notmatch '"license"\s*:\s*"MIT"' -or
-    $websitePackageLock -notmatch '"name"\s*:\s*"quicklook-next-website"[\s\S]{0,200}"license"\s*:\s*"MIT"') {
+    $cargoManifest -notmatch '(?m)^license\s*=\s*"MIT"\s*$') {
     Add-Failure "Project package metadata must consistently declare MIT"
 }
 
@@ -222,7 +218,6 @@ $apiRules = @(
         Pattern = 'System\.IO\.Compression'
         Allowed = @(
             "src/QuickLook.Next.Core/DiagnosticsBundle.cs",
-            "plugins/QuickLook.Next.Plugin.Archive/ArchiveProvider.cs",
             "tests/QuickLook.Next.Core.Tests/DiagnosticsBundleTests.cs",
             "tests/QuickLook.Next.ParserHost.IntegrationTests/ParserHostIntegrationTests.cs",
             "tests/QuickLook.Next.ParserHost.IntegrationTests/OfficeImageSharedSectionTests.cs",
@@ -235,7 +230,6 @@ $apiRules = @(
         Name = "Directory.EnumerateFiles"
         Pattern = '(System\.IO\.)?Directory\.EnumerateFiles'
         Allowed = @(
-            "plugins/QuickLook.Next.Plugin.Archive/FolderProvider.cs",
             "tests/QuickLook.Next.ParserHost.IntegrationTests/OfficeImageSharedSectionTests.cs"
         )
     },
@@ -246,8 +240,6 @@ $apiRules = @(
             "src/QuickLook.Next.App/MainWindow.xaml.cs",
             "src/QuickLook.Next.RasterHost/NativeImageDecoder.cs",
             "src/QuickLook.Next.RasterHost/SystemImageDecoder.cs",
-            "plugins/QuickLook.Next.Plugin.Text/TextProvider.cs",
-            "plugins/QuickLook.Next.Plugin.Image/ImageProvider.cs",
             # Build-time bounded metadata inspection; never grants preview path authority.
             "tools/managed-native-abi.cs"
         )
@@ -3236,14 +3228,6 @@ Invoke-CheckedScript -Path $localMsixVersionTest -Arguments @{ Root = $Root } `
 $formalMsixVersionTest = Join-Path $PSScriptRoot "test-formal-msix-version.ps1"
 Invoke-CheckedScript -Path $formalMsixVersionTest -Arguments @{ Root = $Root } `
     -FailureMessage "Formal MSIX version tests failed"
-
-$storeMsixVersionTest = Join-Path $PSScriptRoot "test-store-msix-version.ps1"
-Invoke-CheckedScript -Path $storeMsixVersionTest -Arguments @{ Root = $Root } `
-    -FailureMessage "Store MSIX version tests failed"
-
-$storePackageTest = Join-Path $PSScriptRoot "test-store-package.ps1"
-Invoke-CheckedScript -Path $storePackageTest -Arguments @{ Root = $Root } `
-    -FailureMessage "Store package guard failed"
 
 $localMsixUpdateTest = Join-Path $PSScriptRoot "test-local-msix-update.ps1"
 Invoke-CheckedScript -Path $localMsixUpdateTest -Arguments @{ Root = $Root } `

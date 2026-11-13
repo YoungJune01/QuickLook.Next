@@ -1,185 +1,70 @@
 # QuickLook Next
 
-[Project website](https://sherlockchiang.github.io/QuickLook.Next/) · [简体中文](README_CN.md)
+[简体中文](README_CN.md) · [Local maintenance guide (中文)](docs/fork-maintenance.md)
 
-> Local maintenance copy: see the [maintenance guide (中文)](docs/fork-maintenance.md)
-> for accepted fixes, development commands, and local build/rollback locations.
-> Store and GitHub download links below refer to upstream distributions.
+A Windows x64 file previewer maintained locally from the upstream `1.0.4`
+source snapshot. Select a file on the desktop or in the active Explorer tab and
+press **Space**. The reported desktop, Explorer-tab, and Excel preview fixes
+have passed owner acceptance.
 
-**Select a file on the Windows desktop or in File Explorer. Press Space. See it instantly.**
+## Run and build
 
-[![Latest release](https://img.shields.io/github/v/release/SherlockChiang/QuickLook.Next?display_name=tag&sort=semver)](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)
-![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
-![Architecture](https://img.shields.io/badge/architecture-x64-555555)
-[![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-certified-107C10?logo=microsoft)](https://apps.microsoft.com/detail/9PM0XKBFJC6R)
+The existing local launcher is `artifacts/Start-MyQuickLook.cmd`. Exit other
+QuickLook instances first. It runs a complete App/host payload; rebuilding
+source does not automatically update that payload.
 
-The Microsoft Store submission for **QuickLook Next 1.0.0.0 (x64)** has passed
-certification. The Store build uses Microsoft's Store identity and signing;
-the GitHub release channel below remains the signed sideload distribution for
-development and direct downloads.
-
-<a href="https://apps.microsoft.com/detail/9PM0XKBFJC6R?hl=en-us&amp;gl=US">
-  <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get QuickLook Next from the Microsoft Store" />
-</a>
-
-![QuickLook Next previewing its own app artwork](docs/images/quicklook-next-hero.png)
-
-QuickLook Next is a fast, native file previewer for Windows Explorer. Its WinUI 3 interface, Rust-powered parsing, GPU-composited image surfaces, and isolated helper processes keep previews responsive without sacrificing safety.
-
-[Explore the immersive project website →](https://sherlockchiang.github.io/QuickLook.Next/)
-
-## Get Started
-
-1. Download `QuickLook.Next-Installer-*-win-x64.zip` from the [latest release](https://github.com/SherlockChiang/QuickLook.Next/releases/latest).
-2. Extract the ZIP and run `Install.cmd` (`Install-ZH-CN.cmd` provides Chinese instructions).
-3. Approve the administrator prompt, finish installation, and launch **QuickLook Next** from Start.
-4. Select a file on the Windows desktop or in File Explorer and press **Space**.
-
-The installer contains a signed MSIX and its project development certificate. Windows needs administrator approval to trust this certificate for sideloading. This is development signing rather than commercial Authenticode trust, so Windows may still warn about the installer script.
-
-## Why QuickLook Next?
-
-- **One-key previews:** open or close the preview with `Space`, then follow Explorer selections with the arrow keys.
-- **Rich image viewing:** zoom and pan, inspect EXIF and color details, view waveforms, and browse neighboring images in a filmstrip.
-- **Useful document views:** read PDF, Markdown, source code, virtualized CSV tables, and approximate Office layouts.
-- **Structured data:** browse bounded SQLite table data in switchable sheets with sticky headers and honest partial-data labels.
-- **Broad format coverage:** preview archives, media, fonts, certificates, executables, ebooks, mail, folders, and more.
-- **Safer parsing:** complex parsers and raster decoders run in restricted, cancellable helper processes.
-- **Clear cloud behavior:** online-only files show a download state before previewing; unsupported content is not disguised as a large file icon.
-- **Windows-aware UI:** high contrast, reduced motion, keyboard navigation, and multi-monitor DPI behavior are respected.
-
-## Shortcuts
-
-| Action | Shortcut |
-| --- | --- |
-| Open or close preview | `Space` |
-| Close preview | `Esc` |
-| Reload current preview | `F5` |
-| Enter or leave fullscreen | `F11` |
-| Follow the previous or next Explorer item | Arrow keys |
-| Zoom image | Mouse wheel or `+` / `-` |
-| Reset image view | `Home` or `Ctrl+0` |
-| Browse neighboring images | `Left` / `Right` while the image preview is focused |
-| Move between PDF pages | `Left` / `Up` / `Page Up` and `Right` / `Down` / `Page Down` |
-
-Space keeps its normal behavior when focus is inside a text field, button, list item, toggle, or slider. Closing a preview hides the window; QuickLook Next remains available from the system tray.
-
-## Supported Content
-
-| Category | Preview experience |
-| --- | --- |
-| Images | JPEG, PNG, APNG, GIF, WebP, BMP, and TIFF; system-codec fallback for formats such as HEIC and AVIF |
-| PDF and Office | Virtualized PDF pages and approximate DOCX, XLSX, and PPTX previews |
-| Text and data | Plain text, source code, configuration files, Markdown, CSV, TSV, and SQLite table sheets |
-| Archives and packages | Bounded listings, metadata summaries, package icons, and safe nested-entry previews for supported containers |
-| Audio and video | Formats supported by Windows Media Foundation, with lightweight container and codec metadata |
-| Specialist formats | Fonts, certificates, PE/EXE/DLL, ELF, minidumps, Torrent, mail, ebooks, CHM, and disk-image metadata |
-| Folders | Bounded directory listings with safe, prioritized thumbnail loading |
-
-Some formats depend on optional Windows codecs. Office previews do not run Microsoft Office, macros, formula recalculation, embedded scripts, or a browser engine, so exact layout fidelity varies with document complexity.
-
-## Cloud Files
-
-QuickLook Next distinguishes already-downloaded cloud files from online-only placeholders:
-
-- Hydrated OneDrive and other cloud files receive the same full preview as local files.
-- Online-only files first show a visible download state.
-- After hydration, QuickLook Next probes the real content and opens the correct preview.
-- Downloads are cancellable and time out instead of leaving a hidden background read running.
-- If availability cannot be verified safely, non-image formats stay in a metadata view instead of falling back to a Shell icon.
-
-## Verify a Download
-
-Each release includes a SHA-256 file next to the Installer ZIP:
+On Windows, prepare the pinned .NET SDK, Rust MSVC toolchain, Desktop C++ tools,
+and Windows SDK described in [CONTRIBUTING.md](CONTRIBUTING.md), then run:
 
 ```powershell
-$zip = Get-Item .\QuickLook.Next-Installer-*-win-x64.zip
-Get-FileHash $zip.FullName -Algorithm SHA256
-Get-Content "$($zip.FullName).sha256"
+pwsh -NoProfile -File tools/doctor.ps1
+pwsh -NoProfile -File build.ps1 -Test
 ```
 
-Continue only when the hashes match and both files came from this repository's Releases page.
-
-## Requirements
-
-- Windows 10 version 1809 or later, or Windows 11.
-- x64 processor.
-- Windows File Explorer for global Space-key integration.
-- A GPU and driver supported by the Windows composition stack.
-
-The package includes the required Windows App SDK runtime components. Optional image and media formats may still require codecs from Windows or the Microsoft Store.
-
-## Troubleshooting
-
-### Space does nothing
-
-- Confirm QuickLook Next is running and its tray icon is present.
-- Bring the Windows desktop or File Explorer to the foreground and select a file. In a tabbed Explorer window, use the active tab's selection.
-- Finish renaming files or typing in an Explorer text field; QuickLook Next intentionally leaves Space alone there.
-- Exit older QuickLook or QuickLook Next instances that may also be listening for Space.
-
-### A preview shows metadata or a partial result
-
-- The file may still be downloading from cloud storage.
-- Windows may not have the optional codec required by the format.
-- A parser may have reached a documented size, row, page, or time limit.
-- SQLite previews sample bounded rows and mark incomplete sheets as partial.
-
-### Report a problem
-
-[Open an issue](https://github.com/SherlockChiang/QuickLook.Next/issues) with your Windows and QuickLook Next versions, file type and approximate size, expected and actual behavior, reproduction steps, and relevant logs. Do not upload private sample files. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current contribution status and maintainer engineering process.
-
-<details>
-<summary><strong>Build from source</strong></summary>
-
-You need Windows x64 with the Desktop C++/MSVC toolchain, the .NET SDK selected by [`global.json`](global.json), and the Rust MSVC toolchain selected by [`rust-toolchain.toml`](rust-toolchain.toml).
+On this computer, first load `. .\artifacts\tools\Enter-Dev.ps1` in PowerShell.
+For full release checks without signing or installation:
 
 ```powershell
-.\build.ps1                       # Sync VERSION and make a Release build
-.\build.ps1 0.3.1                 # Set/sync a version, then build
-.\build.ps1 -Bump Patch -Test     # Increment the patch version and run all tests
-.\build.ps1 -Bump Patch -Package  # Bump, test, and create local installer artifacts
-.\build.ps1 -NoRestore            # Fast repeat after dependencies are restored
-.\build.ps1 -Bump Patch -Install  # Test, sign, and update the current-user MSIX
+pwsh -NoProfile -File tools/release.ps1 -SkipPackage
 ```
 
-`VERSION` is authoritative. The build entry synchronizes it with the native crate manifest and
-lock file before compiling, and prints the resulting App executable path. It creates local binaries
-only by default. The explicit `-Install` path enables all tests, requires the initialized fixed
-certificate in `.signing/`, stops the running App, and updates the current user's package. Repeated
-`-Package` runs the same test, signing, and packaging path without installing or stopping the App.
-`VERSION` always contains a three-part semantic version such as `0.3.1`; a local MSIX uses a
-four-part version such as `0.3.1.1`. Repeated packages of the same semantic version receive
-increasing MSIX revisions (`X.Y.Z.N`) without changing `VERSION`. Revisions are ordered by channel:
-local builds use `1..32767`, beta packages use
-`32768..65534`, and the stable package uses `65535`. A later beta or stable package can therefore
-upgrade a same-base local build; after installing a beta or stable package, bump the patch version
-before installing another local build. `tools/release.ps1` remains the authoritative formal signing
-and packaging entry point; release artifacts are written to `artifacts/`.
+`tools/pack-release.ps1` assembles a portable ZIP; it retains the App, all three
+hosts, licenses, and notices. Optional signed MSIX sideload tooling remains in
+`packaging/` and `tools/`; it needs your own signing setup. No Store submission,
+certification, or Partner Center configuration is required for local use.
 
-</details>
+## Features and controls
 
-<details>
-<summary><strong>Architecture and releases</strong></summary>
+- Images and animations, PDF, approximate DOCX/XLSX/PPTX layouts.
+- Text, code, Markdown, CSV/TSV, SQLite, archives, packages, and folders.
+- System-supported audio/video, fonts, certificates, executables, mail, and ebooks.
+- Cloud-download consent, cancellation, bounded parsing, and isolated preview hosts.
+- `Space`: toggle preview; `Esc`: close; `F5`: reload; `F11`: full screen.
+- Image wheel or `+`/`-`: zoom; `Home` or `Ctrl+0`: reset; `Ctrl+F`: text search.
 
-- `QuickLook.Next.App`: WinUI 3 shell, presenters, input, and process supervision.
-- `quicklook_next_native`: Rust probing, Explorer integration, parsers, thumbnails, and image decoding.
-- `QuickLook.Next.ParserHost`: isolated structured parsing for archives, Office files, ebooks, executables, and related formats.
-- `QuickLook.Next.RasterHost`: isolated image, PDF, and system-codec rendering through shared GPU surfaces.
-- App/host IPC uses authenticated current-user-only named pipes with cancellation and stale-result guards.
+Excel uses a fixed footer for sheet selection and preserves normal row height,
+blank cells, and merged regions. Previews retain at most 48 rows, 32 columns,
+and six sheets. Oversized worksheet XML shows an explanatory error and an Open
+File action. Office previews do not execute macros or recalculate formulas.
+Some image/media formats require optional Windows codecs.
 
-Pull requests run CI; contribution and verification requirements are defined in [`CONTRIBUTING.md`](CONTRIBUTING.md). A tested commit whose subject starts with `release:` runs the stable packaging workflow. Published assets include signed packages, checksums, release metadata, update metadata, build manifests, and an SBOM.
+## Maintenance and architecture
 
-See [`AGENTS.md`](AGENTS.md), the [`architecture decision records`](docs/adr/README.md), and
-[`docs/review-readiness.md`](docs/review-readiness.md) for engineering boundaries and verification details.
+`src/` contains the WinUI shell, shared models, and ParserHost, RasterHost, and
+ShellBroker. `native/quicklook_next_native/` owns probing and bounded structured
+parsing; `tests/`, `testdata/`, and `tools/` provide verification and fixtures.
+The retired website, legacy plugins, and publication history remain in Git.
 
-</details>
+[AGENTS.md](AGENTS.md) and the [ADRs](docs/adr/README.md) define architecture
+boundaries. See [review status](docs/review-readiness.md),
+[manual acceptance](docs/desktop-regression-checklist.md), and
+[remaining work](docs/implementation-todo.md). Report bugs with the commit,
+file type/size, reproduction steps, and expected/actual behavior; use synthetic
+samples and keep private documents out of the repository.
 
-## Security
+## Security and license
 
-Do not file a public issue for an undisclosed vulnerability. Follow [`SECURITY.md`](SECURITY.md) for private reporting and sensitive-sample handling.
-
-## License
-
-QuickLook Next's original source code and assets are available under the [MIT License](LICENSE).
-Bundled third-party components remain subject to their respective licenses and notices.
+Follow [SECURITY.md](SECURITY.md) for private vulnerability reporting and
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements.
+Original source and assets use the [MIT License](LICENSE); bundled dependencies
+retain their own licenses and notices. Upstream project: `SherlockChiang/QuickLook.Next`.

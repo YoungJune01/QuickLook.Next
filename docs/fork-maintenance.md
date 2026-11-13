@@ -8,11 +8,13 @@
 
 - 双击本机的 `artifacts/Start-MyQuickLook.cmd`，当前启动
   `artifacts/local-preview-20261113-workbook-blanks/`。先退出其他 QuickLook 实例。
-- 当前功能源码为 `38271f4`，位于 `fix/workbook-empty-cells`；下表修复依次叠加。
+- 当前功能基线为 `38271f4`，保留于 `fix/workbook-empty-cells`；下表修复依次叠加。
+  项目精简工作位于其后的 `chore/slim-local-maintenance` 分支。
 - 2026-11-13，用户已确认全部已报告核心场景通过。反复切换、无选中项、主题等
   组合场景仍按[交互回归清单](desktop-regression-checklist.md)单独记录。
 - 最新代码验证基线：Rust 390 项通过、1 项原有忽略；.NET 557 项通过；Release
-  构建零警告、零错误；格式、Clippy 和完整架构检查通过。本次文档整理未重跑这些检查。
+  构建零警告、零错误；格式、Clippy 和完整架构检查通过。
+  项目精简后的独立验证结果见 [review-readiness.md](review-readiness.md)。
 
 ## 已完成修复
 
@@ -37,14 +39,24 @@ Excel 编辑器，查看全部数据请打开原文件。私人样本未提交�
 | `testdata/` | 合成或获准分发的回归样本 |
 | `tools/`、`packaging/` | 构建、检查、发布脚本与打包配置 |
 | `docs/` | 实现状态、验收清单、ADRs、格式说明及后续计划 |
-| `plugins/` | 旧插件参考源码，不进入默认发现和发布路径 |
-| `website/` | 上游产品网站 |
 | `artifacts/` | 本机工具、测试包和证据；已被 Git 忽略 |
 
 [review-readiness.md](review-readiness.md) 区分本地修复与上游历史验证，
 [docs/adr/README.md](adr/README.md) 索引已接受的架构决策，
 [handle-based-preview-inputs.md](handle-based-preview-inputs.md) 记录 HANDLE/ABI 细节，
-[implementation-todo.md](implementation-todo.md) 保留上游任务背景。
+[implementation-todo.md](implementation-todo.md) 维护精简后的当前待办。
+
+商店上架流程、宣传网站、未参与构建的旧插件和冗长历史文档已移出工作目录，
+清理前的完整版本保留于 Git 提交 `54302d0`。例如：
+
+```powershell
+git show 54302d0:docs/implementation-todo.md
+git ls-tree -r --name-only 54302d0 -- website plugins
+```
+
+当前运行代码、格式支持、测试、安全检查和必要 Windows 资源保留。
+`packaging/` 中的可选侧载安装与商店上架独立；其签名、证书校验属于 Windows
+安装机制，日常本地启动无需使用。`StoreLogo.png` 是安装清单引用的图标，仍保留。
 
 ## 本机开发与验证
 
