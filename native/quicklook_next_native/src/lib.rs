@@ -514,7 +514,7 @@ fn start_selection_worker() {
                     PREVIEW_VISIBLE.load(Ordering::SeqCst),
                 ) =>
                 {
-                    do_selection_and_emit(tag)
+                    do_selection_and_emit(tag, cancel_generation)
                 }
                 SelectionRequest::Read { .. } => {}
                 SelectionRequest::Stop => break,
@@ -746,7 +746,18 @@ fn is_text_input_class_name(name: &str) -> bool {
 }
 
 fn is_explorer_window_class_name(name: &str) -> bool {
-    matches!(name, "CabinetWClass" | "ExploreWClass")
+    matches!(
+        name,
+        "CabinetWClass" | "ExploreWClass" | "Progman" | "WorkerW"
+    )
+}
+
+fn is_desktop_window_class_name(name: &str) -> bool {
+    matches!(name, "Progman" | "WorkerW")
+}
+
+fn shell_window_supports_selection(name: &str, has_desktop_view: bool) -> bool {
+    is_explorer_window_class_name(name) && (!is_desktop_window_class_name(name) || has_desktop_view)
 }
 
 /// Test-only ABI used by smoke-native.ps1 to lock the Explorer rename guard's class filter.
@@ -829,18 +840,30 @@ unsafe fn mouse_up_target_is_explorer(lparam: LPARAM) -> bool {
 }
 
 unsafe fn root_window_is_explorer(root: HWND) -> bool {
-    if root.0.is_null() {
+    // SAFETY: The helper only reads the borrowed HWND's class into a bounded local buffer.
+    let Some(name) = (unsafe { window_class_name(root) }) else {
         return false;
+    };
+    // Wallpaper and other WorkerW windows must not receive preview hotkeys. Only the
+    // desktop host with an actual icon view is a selection source.
+    let has_desktop_view = is_desktop_window_class_name(&name)
+        // SAFETY: Win32 only inspects the borrowed parent HWND and static class string.
+        && unsafe { FindWindowExW(Some(root), None, w!("SHELLDLL_DefView"), None) }.is_ok();
+    shell_window_supports_selection(&name, has_desktop_view)
+}
+
+unsafe fn window_class_name(root: HWND) -> Option<String> {
+    if root.0.is_null() {
+        return None;
     }
 
     let mut class_name = [0u16; 128];
     // SAFETY: The bounded local array is writable and not retained by Win32.
     let len = unsafe { GetClassNameW(root, &mut class_name) };
     if len <= 0 {
-        return false;
+        return None;
     }
-    let name = String::from_utf16_lossy(&class_name[..len as usize]);
-    is_explorer_window_class_name(&name)
+    Some(String::from_utf16_lossy(&class_name[..len as usize]))
 }
 
 /// Read the current Explorer selection on a fresh STA thread (avoids apartment conflicts with the
@@ -848,8 +871,9 @@ unsafe fn root_window_is_explorer(root: HWND) -> bool {
 #[no_mangle]
 pub extern "C" fn ql_get_selection() {
     ffi_void_boundary(|| {
+        let cancel_generation = SELECTION_CANCEL_GENERATION.load(Ordering::SeqCst);
         // Shell interfaces are created/used on this fresh thread's COM apartment.
-        let h = std::thread::spawn(|| {
+        let h = std::thread::spawn(move || {
             let Ok(_apartment) = win32::com::StaApartment::initialize() else {
                 emit("SELECTION_ERR\tCOM_INIT");
                 return;
@@ -857,15 +881,26 @@ pub extern "C" fn ql_get_selection() {
             let _cache_scope = ShellWindowsCacheScope {
                 _apartment: &_apartment,
             };
-            do_selection_and_emit("SELECTION");
+            do_selection_and_emit("SELECTION", cancel_generation);
         });
         let _ = h.join();
     });
 }
 
-fn do_selection_and_emit(tag: &str) {
+fn do_selection_and_emit(tag: &str, cancel_generation: u64) {
     // SAFETY: Only the initialized COM worker and the fresh selection STA call this function.
-    match unsafe { get_explorer_selection() } {
+    let selection = unsafe { get_explorer_selection() };
+    // A COM call can outlive closing the preview. Settle its interfaces before discarding
+    // the result, and never publish a selection canceled during the read.
+    if !accepts_selection_request(
+        cancel_generation,
+        SELECTION_CANCEL_GENERATION.load(Ordering::SeqCst),
+        tag,
+        PREVIEW_VISIBLE.load(Ordering::SeqCst),
+    ) {
+        return;
+    }
+    match selection {
         Ok(paths) if !paths.is_empty() => emit(&format!("{tag}\t{}", paths.join("\t"))),
         Ok(_) => emit(&format!("{tag}\t<no selection / not in Explorer>")),
         Err(e) => emit(&format!("{tag}_ERR\t{e:?}")),
@@ -878,6 +913,10 @@ fn do_selection_and_emit(tag: &str) {
 unsafe fn get_explorer_selection() -> Result<Vec<String>> {
     // SAFETY: This query takes no pointer arguments and returns a borrowed HWND.
     let foreground = unsafe { GetForegroundWindow() };
+    // SAFETY: This only inspects a borrowed HWND and bounded class-name buffers.
+    if !unsafe { root_window_is_explorer(foreground) } {
+        return Ok(Vec::new());
+    }
     // SAFETY: The caller runs in an initialized STA; the cache is thread-local.
     let mut shell_windows = unsafe { cached_shell_windows() }?;
     // SAFETY: The COM interface remains owned and is called on its originating STA.
@@ -892,34 +931,154 @@ unsafe fn get_explorer_selection() -> Result<Vec<String>> {
         }
     };
 
-    for i in 0..count {
+    // The desktop is not a normal entry in IShellWindows. Obtain its documented
+    // desktop dispatch explicitly, then use the same folder-view selection path.
+    // SAFETY: The helper reads the borrowed HWND's class into a bounded local buffer.
+    if unsafe { window_class_name(foreground) }
+        .is_some_and(|name| is_desktop_window_class_name(&name))
+    {
+        let mut desktop_hwnd = 0;
+        // SAFETY: The variants and HWND output remain live for this synchronous STA call.
+        let desktop = unsafe {
+            shell_windows.FindWindowSW(
+                &VARIANT::default(),
+                &VARIANT::default(),
+                SWC_DESKTOP,
+                &mut desktop_hwnd,
+                SWFO_NEEDDISPATCH,
+            )
+        }?;
+        // SAFETY: The returned dispatch is owned by this STA.
+        let view = unsafe { shell_view_from_dispatch(&desktop) }?;
+        // SAFETY: The view is owned on this STA and the HWND is borrowed.
+        return unsafe { read_current_view_selection(&view, foreground) };
+    }
+
+    // Bound enumeration even if Shell returns an unreasonable window count.
+    if !(0..=256).contains(&count) {
+        return Err(Error::from_hresult(E_FAIL));
+    }
+    let views = (0..count).filter_map(|i| {
         let idx = VARIANT::from(i);
         // SAFETY: idx is a live VARIANT and shell_windows remains alive on its STA.
-        let disp = match unsafe { shell_windows.Item(&idx) } {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-        let wb: IWebBrowser2 = match disp.cast() {
-            Ok(w) => w,
-            Err(_) => continue,
-        };
+        let disp = unsafe { shell_windows.Item(&idx) }.ok()?;
+        let wb: IWebBrowser2 = disp.cast().ok()?;
         // SAFETY: wb owns a valid interface on this STA; HWND is returned by value.
         let hwnd = HWND(unsafe { wb.HWND() }.unwrap_or(SHANDLE_PTR(0)).0 as *mut _);
-        if hwnd == foreground {
-            // SAFETY: wb is a live Explorer interface on this initialized STA.
-            let paths = unsafe { read_window_selection(&wb) }.unwrap_or_default();
-            return Ok(paths);
+        if hwnd != foreground {
+            return None;
+        }
+        // Windows 11 tabs share IWebBrowser2.HWND. Their individual shell views,
+        // including hidden tabs, must be considered before choosing a selection.
+        // SAFETY: disp is owned on this initialized STA.
+        unsafe { shell_view_from_dispatch(&disp) }.ok()
+    });
+    read_first_current_selection(
+        views,
+        // SAFETY: Each view is owned on this STA; Win32 only inspects borrowed HWNDs.
+        |view| unsafe { shell_view_is_current(view, foreground) },
+        // SAFETY: The selected view stays alive on this STA throughout the read.
+        |view| unsafe { read_current_view_selection(view, foreground) },
+    )
+}
+
+fn read_first_current_selection<T>(
+    views: impl IntoIterator<Item = T>,
+    mut is_current: impl FnMut(&T) -> bool,
+    mut read_selection: impl FnMut(&T) -> Result<Vec<String>>,
+) -> Result<Vec<String>> {
+    for view in views {
+        if is_current(&view) {
+            // An empty or failed active selection must never fall back to a hidden tab.
+            return read_selection(&view);
         }
     }
     Ok(Vec::new())
 }
 
-unsafe fn read_window_selection(wb: &IWebBrowser2) -> Result<Vec<String>> {
-    let sp: IServiceProvider = wb.cast()?;
+struct SelectionShellView {
+    view: IShellView,
+    browser_window: HWND,
+}
+
+unsafe fn shell_view_from_dispatch(dispatch: &IDispatch) -> Result<SelectionShellView> {
+    let sp: IServiceProvider = dispatch.cast()?;
     // SAFETY: sp is owned on the current STA and QueryService uses the typed Shell interface IID.
     let browser: IShellBrowser = unsafe { sp.QueryService(&SID_STopLevelBrowser) }?;
+    // SAFETY: browser is owned on this STA and returns a borrowed HWND by value.
+    let browser_window = unsafe { browser.GetWindow() }?;
     // SAFETY: browser remains alive on the same STA and returns an owned view interface.
-    let view: IShellView = unsafe { browser.QueryActiveShellView() }?;
+    let view = unsafe { browser.QueryActiveShellView() }?;
+    Ok(SelectionShellView {
+        view,
+        browser_window,
+    })
+}
+
+fn shell_browser_matches_active_tab(
+    browser: HWND,
+    foreground: HWND,
+    active_tab: Option<HWND>,
+    desktop: bool,
+) -> bool {
+    !browser.0.is_null()
+        && match active_tab {
+            Some(tab) => tab == browser,
+            None => desktop || browser == foreground,
+        }
+}
+
+unsafe fn shell_view_is_current(view: &SelectionShellView, foreground: HWND) -> bool {
+    // SAFETY: The owned view is called on its originating STA and returns a borrowed HWND.
+    let Ok(view_hwnd) = (unsafe { view.view.GetWindow() }) else {
+        return false;
+    };
+    if view_hwnd.0.is_null() || foreground.0.is_null() {
+        return false;
+    }
+    // Windows 11 can report hidden tab views as visible. The active tab is the first
+    // ShellTabWindowClass child in Z order; IShellBrowser.GetWindow identifies each
+    // individual tab, whereas IWebBrowser2.HWND identifies only the shared frame.
+    // SAFETY: Win32 only inspects a borrowed parent HWND and a static class string.
+    let active_tab =
+        unsafe { FindWindowExW(Some(foreground), None, w!("ShellTabWindowClass"), None) }.ok();
+    // SAFETY: Only a bounded synchronous class-name read is performed on the borrowed HWND.
+    let desktop = unsafe { window_class_name(foreground) }
+        .is_some_and(|name| is_desktop_window_class_name(&name));
+    // SAFETY: These calls inspect borrowed HWNDs without transferring ownership.
+    unsafe {
+        GetForegroundWindow() == foreground
+            && GetAncestor(view_hwnd, GA_ROOT) == foreground
+            && IsWindowVisible(view_hwnd).as_bool()
+            && shell_browser_matches_active_tab(
+                view.browser_window,
+                foreground,
+                active_tab,
+                desktop,
+            )
+    }
+}
+
+unsafe fn read_current_view_selection(
+    view: &SelectionShellView,
+    foreground: HWND,
+) -> Result<Vec<String>> {
+    // SAFETY: The view is owned on this STA and only borrowed HWNDs are inspected.
+    if !unsafe { shell_view_is_current(view, foreground) } {
+        return Ok(Vec::new());
+    }
+    // SAFETY: The view remains alive on this STA for the complete selection read.
+    let paths = unsafe { read_view_selection(&view.view) }?;
+    // A tab switch or foreground change during COM must not emit the old selection.
+    // SAFETY: The view is still owned on this STA; only borrowed HWNDs are inspected.
+    if unsafe { shell_view_is_current(view, foreground) } {
+        Ok(paths)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+unsafe fn read_view_selection(view: &IShellView) -> Result<Vec<String>> {
     let folder_view: IFolderView = view.cast()?;
     // SAFETY: folder_view is an owned interface on this STA; the selection flag is valid.
     let items: IShellItemArray = unsafe { folder_view.Items(SVGIO_SELECTION) }?;
@@ -2978,6 +3137,140 @@ mod tests {
         assert!(!accepts_selection_request(3, 4, "OPEN", false));
         assert!(accepts_selection_request(4, 4, "SWITCH", true));
         assert!(!accepts_selection_request(4, 4, "SWITCH", false));
+    }
+
+    #[test]
+    fn desktop_hotkeys_require_the_icon_view_and_exclude_other_shell_windows() {
+        for name in ["Progman", "WorkerW"] {
+            assert!(shell_window_supports_selection(name, true));
+            assert!(!shell_window_supports_selection(name, false));
+        }
+        for name in ["CabinetWClass", "ExploreWClass"] {
+            assert!(shell_window_supports_selection(name, false));
+        }
+        for name in ["Shell_TrayWnd", "Notepad", "Edit", "", "progman"] {
+            assert!(!shell_window_supports_selection(name, true));
+            assert!(!shell_window_supports_selection(name, false));
+        }
+    }
+
+    #[test]
+    fn selection_uses_the_current_tab_instead_of_the_first_shared_window() {
+        let frame = HWND(100usize as *mut _);
+        let first = HWND(101usize as *mut _);
+        let current = HWND(102usize as *mut _);
+        let last = HWND(103usize as *mut _);
+        // All tabs can be visible and share the same frame. Only the browser HWND
+        // corresponding to the active ShellTabWindowClass child is a selection source.
+        let tabs = [
+            (first, "first.txt"),
+            (current, "current.txt"),
+            (last, "last.txt"),
+        ];
+        let mut reads = Vec::new();
+        let selected = read_first_current_selection(
+            tabs,
+            |tab| shell_browser_matches_active_tab(tab.0, frame, Some(current), false),
+            |tab| {
+                reads.push(tab.1);
+                Ok(vec![tab.1.to_owned()])
+            },
+        )
+        .unwrap();
+        assert_eq!(selected, ["current.txt"]);
+        assert_eq!(reads, ["current.txt"]);
+    }
+
+    #[test]
+    fn tab_matching_preserves_desktop_and_legacy_views_without_guessing_a_tab() {
+        let frame = HWND(100usize as *mut _);
+        let tab = HWND(101usize as *mut _);
+        assert!(shell_browser_matches_active_tab(frame, frame, None, false));
+        assert!(shell_browser_matches_active_tab(frame, frame, None, true));
+        // A WorkerW desktop can host the view separately from the desktop browser.
+        assert!(shell_browser_matches_active_tab(tab, frame, None, true));
+        // An unknown/missing active-tab window must not select an arbitrary child browser.
+        assert!(!shell_browser_matches_active_tab(tab, frame, None, false));
+        assert!(!shell_browser_matches_active_tab(
+            HWND::default(),
+            frame,
+            None,
+            true,
+        ));
+        assert!(!shell_browser_matches_active_tab(
+            frame,
+            frame,
+            Some(tab),
+            false,
+        ));
+    }
+
+    #[test]
+    fn empty_current_tab_does_not_reuse_an_inactive_selection() {
+        let selected = read_first_current_selection(
+            [(false, "stale.txt"), (true, ""), (false, "other.txt")],
+            |tab| tab.0,
+            |tab| {
+                assert!(tab.1.is_empty(), "only the current view may be read");
+                Ok(Vec::new())
+            },
+        )
+        .unwrap();
+        assert!(selected.is_empty());
+    }
+
+    #[test]
+    fn closed_or_unavailable_views_do_not_read_a_background_selection() {
+        let selected = read_first_current_selection(
+            ["hidden", "closed", "other-window"],
+            |_| false,
+            |_| panic!("a background view must never supply a selection"),
+        )
+        .unwrap();
+        assert!(selected.is_empty());
+    }
+
+    #[test]
+    fn active_view_error_is_preserved_without_reading_another_tab() {
+        let error = read_first_current_selection(
+            [true, false],
+            |active| *active,
+            |active| {
+                assert!(*active);
+                Err(Error::from_hresult(E_ACCESSDENIED))
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code(), E_ACCESSDENIED);
+    }
+
+    #[test]
+    fn selection_releases_all_candidate_views_after_success_or_failure() {
+        struct ViewLease(usize, Arc<AtomicUsize>);
+        impl Drop for ViewLease {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        for fail in [false, true] {
+            let released = Arc::new(AtomicUsize::new(0));
+            let views = (0..3)
+                .map(|index| ViewLease(index, Arc::clone(&released)))
+                .collect::<Vec<_>>();
+            let result = read_first_current_selection(
+                views,
+                |view| view.0 == 1,
+                |_| {
+                    if fail {
+                        Err(Error::from_hresult(E_FAIL))
+                    } else {
+                        Ok(vec!["current.txt".to_owned()])
+                    }
+                },
+            );
+            assert_eq!(result.is_err(), fail);
+            assert_eq!(released.load(Ordering::SeqCst), 3);
+        }
     }
 
     #[test]

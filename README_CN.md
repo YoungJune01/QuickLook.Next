@@ -2,7 +2,7 @@
 
 [项目网站](https://sherlockchiang.github.io/QuickLook.Next/) · [English](README.md)
 
-**在 Windows 文件资源管理器中选中文件，按一下空格键，立即预览。**
+**在 Windows 桌面或文件资源管理器中选中文件，按一下空格键，立即预览。**
 
 [![最新版本](https://img.shields.io/github/v/release/SherlockChiang/QuickLook.Next?display_name=tag&sort=semver)](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)
 ![Windows 10 和 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
@@ -28,7 +28,7 @@ QuickLook Next 是快速、原生的 Windows 文件预览工具。WinUI 3 界面
 1. 从[最新版本](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)下载 `QuickLook.Next-Installer-*-win-x64.zip`。
 2. 解压 ZIP，运行 `Install-ZH-CN.cmd`。
 3. 同意管理员提示，完成安装，然后从开始菜单启动 **QuickLook Next**。
-4. 在文件资源管理器中选中文件，按 **空格键**。
+4. 在 Windows 桌面或文件资源管理器中选中文件，按 **空格键**。
 
 安装程序包含已签名的 MSIX 和对应的项目开发证书。Windows 需要管理员确认，才能信任用于侧载的证书。该签名属于开发签名，不是商业 Authenticode 信任，因此 Windows 仍可能对安装脚本显示安全提示。
 
@@ -108,7 +108,7 @@ Get-Content "$($zip.FullName).sha256"
 ### 按空格键没有反应
 
 - 确认 QuickLook Next 正在运行且系统托盘图标存在。
-- 将 Windows 文件资源管理器切换到前台并选中文件。
+- 将 Windows 桌面或文件资源管理器切换到前台并选中文件；多标签页窗口使用当前标签页的选择。
 - 结束文件重命名或资源管理器文本框输入；程序会有意在这些场景保留空格键。
 - 退出可能也在监听空格键的旧版 QuickLook 或 QuickLook Next。
 

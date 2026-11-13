@@ -2,7 +2,7 @@
 
 [Project website](https://sherlockchiang.github.io/QuickLook.Next/) · [简体中文](README_CN.md)
 
-**Select a file in Windows Explorer. Press Space. See it instantly.**
+**Select a file on the Windows desktop or in File Explorer. Press Space. See it instantly.**
 
 [![Latest release](https://img.shields.io/github/v/release/SherlockChiang/QuickLook.Next?display_name=tag&sort=semver)](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)
 ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
@@ -29,7 +29,7 @@ QuickLook Next is a fast, native file previewer for Windows Explorer. Its WinUI 
 1. Download `QuickLook.Next-Installer-*-win-x64.zip` from the [latest release](https://github.com/SherlockChiang/QuickLook.Next/releases/latest).
 2. Extract the ZIP and run `Install.cmd` (`Install-ZH-CN.cmd` provides Chinese instructions).
 3. Approve the administrator prompt, finish installation, and launch **QuickLook Next** from Start.
-4. Select a file in Windows Explorer and press **Space**.
+4. Select a file on the Windows desktop or in File Explorer and press **Space**.
 
 The installer contains a signed MSIX and its project development certificate. Windows needs administrator approval to trust this certificate for sideloading. This is development signing rather than commercial Authenticode trust, so Windows may still warn about the installer script.
 
@@ -110,7 +110,7 @@ The package includes the required Windows App SDK runtime components. Optional i
 ### Space does nothing
 
 - Confirm QuickLook Next is running and its tray icon is present.
-- Bring Windows Explorer to the foreground and select a file.
+- Bring the Windows desktop or File Explorer to the foreground and select a file. In a tabbed Explorer window, use the active tab's selection.
 - Finish renaming files or typing in an Explorer text field; QuickLook Next intentionally leaves Space alone there.
 - Exit older QuickLook or QuickLook Next instances that may also be listening for Space.
 

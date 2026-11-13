@@ -4,6 +4,58 @@ This note is a reviewer-facing status page. It records what has already been
 hardened, how to verify it locally, and which limitations are intentionally
 left visible instead of hidden behind vague TODOs.
 
+## 2026-11-13 local fork: desktop and Explorer tabs
+
+This local fork starts from the downloaded `1.0.4` source snapshot, preserved in
+local commit `396fbbf`; the corresponding upstream commit is not established.
+The maintenance entry is [fork-maintenance.md](fork-maintenance.md).
+
+Native selection now recognizes the desktop only when its Progman/WorkerW host
+contains `SHELLDLL_DefView`, obtains desktop selection through
+`IShellWindows.FindWindowSW(SWC_DESKTOP)`, and filters Explorer candidates by the
+active tab's `IShellBrowser.GetWindow` rather than the shared frame HWND alone.
+Windows 11 build 26300 reported both tab views as visible during live inspection;
+visibility alone is insufficient. The active `ShellTabWindowClass` child in
+Z order distinguished the two test tabs after actual pointer navigation. Missing
+tab identification fails closed for child browsers instead of choosing the first
+one. Foreground/tab state is checked before and after selection reads, and queued
+cancellation generations are rechecked before emitting results.
+
+The pinned MSBuild native Release build, format check, all-target/all-feature
+Clippy, and full architecture `-SkipDist` gate passed. Rust tests passed 371 with
+one pre-existing ignored external-corpus test. Locked solution restore and the
+managed Release build passed with zero warnings/errors; all 546 managed tests
+passed (Core 412, ParserHost 49, RasterHost 72, ShellBroker 13). ABI,
+stale-callback, localization, and architecture-guidance checks also passed. No
+toolchain pins or dependency lock files changed.
+
+Live exported-selection probes returned the expected synthetic file from each
+of two tabs in one Explorer window. The initial first-tab probe returned an
+empty selection before explicitly selecting the file; this was a probe setup
+issue. A later empty-current-tab probe returned `0x80070490` without a background
+selection. The desktop COM probe found the actual desktop view. A later probe
+created and selected a temporary desktop TXT, but `MinimizeAll` did not make the
+desktop foreground; the foreground HWND differed from the inspected desktop root
+and native selection returned an empty result. The sample was removed and prior
+selection/windows restored. This did
+not exercise the native desktop route; desktop Space-key behavior remains
+unverified.
+
+Using the existing release-payload helpers, 185 files were assembled and their
+hashes verified in `artifacts/local-preview-20261113/`. The App and its restricted
+hosts started successfully. Actual Space-key previews showed `second-tab.txt`
+with `SECOND TAB` and, after switching back, `first-tab.txt` with `FIRST TAB`;
+screenshots confirmed both titles and contents. Esc closed the second-tab
+preview. Automation also entered a synthetic file's rename field: Space remained
+text input, and Esc canceled the edit. Initial foreground-activation failures and
+an accessibility action opening the test TXT's Windows application chooser were
+test-driver issues; the chooser was dismissed without changing file associations.
+
+These are focused smoke results, not completion of the repeated keyboard/tab,
+empty-selection App, desktop, or wider manual cases in
+[desktop-regression-checklist.md](desktop-regression-checklist.md). Those rows
+remain pending. No MSIX packaging, installation, or remote publication was done.
+
 ## Current Verification And Priority
 
 The active work is tracked in [`implementation-todo.md`](implementation-todo.md).

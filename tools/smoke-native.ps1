@@ -242,6 +242,9 @@ Assert-True ((Test-TextInputClass "RichEdit50W") -eq 1) "Expected RichEdit50W cl
 Assert-True ((Test-TextInputClass "DirectUIHWND") -eq 0) "Expected normal Explorer view class to allow preview hotkeys"
 Assert-True ((Test-ExplorerWindowClass "CabinetWClass") -eq 1) "Expected Explorer window class to allow preview hotkeys"
 Assert-True ((Test-ExplorerWindowClass "ExploreWClass") -eq 1) "Expected legacy Explorer window class to allow preview hotkeys"
+Assert-True ((Test-ExplorerWindowClass "Progman") -eq 1) "Expected desktop host class to be eligible for preview hotkeys"
+Assert-True ((Test-ExplorerWindowClass "WorkerW") -eq 1) "Expected desktop WorkerW class to be eligible for preview hotkeys"
+Assert-True ((Test-ExplorerWindowClass "Shell_TrayWnd") -eq 0) "Expected taskbar class to suppress preview hotkeys"
 Assert-True ((Test-ExplorerWindowClass "Notepad") -eq 0) "Expected non-Explorer foreground window class to suppress preview hotkeys"
 
 $testRoot = Resolve-Path -LiteralPath $TestFiles
