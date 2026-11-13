@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <SupervisedHostCrashProbeOutput>$(MSBuildThisFileDirectory)..\QuickLook.Next.SupervisedHostCrashProbe\bin\$(Configuration)\net10.0\win-x64\</SupervisedHostCrashProbeOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QuickLook.Next.Core\QuickLook.Next.Core.csproj" />
+    <ProjectReference Include="..\QuickLook.Next.SupervisedHostCrashProbe\QuickLook.Next.SupervisedHostCrashProbe.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\QuickLook.Next.App\ThumbnailFileSnapshot.cs"
+             Link="AppModel\ThumbnailFileSnapshot.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\ImageThumbnailCache.cs"
+             Link="AppModel\ImageThumbnailCache.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewContentCompletion.cs"
+             Link="AppModel\PreviewContentCompletion.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\DispatcherHeartbeat.cs"
+             Link="AppModel\DispatcherHeartbeat.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\UpdateChecker.cs"
+             Link="AppModel\UpdateChecker.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewSession.cs"
+             Link="AppModel\PreviewSession.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\ImageDisplayRefreshState.cs"
+             Link="AppModel\ImageDisplayRefreshState.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewLifecycleTiming.cs"
+             Link="AppModel\PreviewLifecycleTiming.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\SyntaxHighlighter.cs"
+             Link="AppModel\SyntaxHighlighter.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\DuplicateOpenCloseGuard.cs"
+             Link="AppModel\DuplicateOpenCloseGuard.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewNavigationPolicy.cs"
+             Link="AppModel\PreviewNavigationPolicy.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewWindowPolicy.cs"
+             Link="AppModel\PreviewWindowPolicy.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PdfTextController.cs"
+             Link="AppModel\PdfTextController.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PdfDocumentStatePolicy.cs"
+             Link="AppModel\PdfDocumentStatePolicy.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PdfViewportUpdateScheduler.cs"
+             Link="AppModel\PdfViewportUpdateScheduler.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\OfficeCoveragePolicy.cs"
+             Link="AppModel\OfficeCoveragePolicy.cs" />
+  </ItemGroup>
+  <Target Name="StageSupervisedHostCrashProbe" AfterTargets="Build">
+    <Error Condition="!Exists('$(SupervisedHostCrashProbeOutput)QuickLook.Next.SupervisedHostCrashProbe.exe')"
+           Text="Supervised-host crash probe is missing: $(SupervisedHostCrashProbeOutput)QuickLook.Next.SupervisedHostCrashProbe.exe" />
+    <ItemGroup>
+      <SupervisedHostCrashProbeFiles Include="$(SupervisedHostCrashProbeOutput)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SupervisedHostCrashProbeFiles)"
+          DestinationFiles="@(SupervisedHostCrashProbeFiles->'$(OutDir)CrashProbe\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

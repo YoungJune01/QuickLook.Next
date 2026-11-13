@@ -1,0 +1,105 @@
+param(
+    [string]$Root = (Split-Path $PSScriptRoot -Parent)
+)
+
+$ErrorActionPreference = "Stop"
+
+$sourceRoot = Join-Path $Root "native\quicklook_next_native\src"
+$sharedSafetyPath = Join-Path (
+    $Root) "native\quicklook_next_native\src\ffi_pointer_safety.md"
+if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) {
+    throw "Rust FFI source root is missing: $sourceRoot"
+}
+foreach ($path in @($sharedSafetyPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Rust FFI safety input is missing: $path"
+    }
+}
+
+$sharedSafety = Get-Content -LiteralPath $sharedSafetyPath -Raw
+if ($sharedSafety -notmatch '(?m)^# Safety\s*$' -or
+    $sharedSafety -notmatch 'readable' -or
+    $sharedSafety -notmatch 'writable') {
+    throw "The shared raw-pointer contract must document readable and writable buffers."
+}
+
+$failures = [Collections.Generic.List[string]]::new()
+$rawPointerExports = 0
+$retainedCallbackExports = 0
+$sourceFiles = @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter "*.rs")
+
+foreach ($sourceFile in $sourceFiles) {
+    $lines = @(Get-Content -LiteralPath $sourceFile.FullName)
+    for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
+        if ($lines[$lineIndex].Trim() -ne "#[no_mangle]") {
+            continue
+        }
+
+        $signatureLines = [Collections.Generic.List[string]]::new()
+        for ($signatureIndex = $lineIndex + 1;
+            $signatureIndex -lt $lines.Count;
+            $signatureIndex++) {
+            $signatureLines.Add($lines[$signatureIndex])
+            if ($lines[$signatureIndex] -match '\{') {
+                break
+            }
+        }
+        $signature = $signatureLines -join "`n"
+        if ($signature -notmatch
+            'pub\s+(?:unsafe\s+)?extern\s+"(?:C|system)"\s+fn\s+([A-Za-z0-9_]+)') {
+            continue
+        }
+        $exportName = $Matches[1]
+        if ($signature -notmatch '\*(?:const|mut)\s+' -and $exportName -ne 'ql_set_callback') {
+            continue
+        }
+
+        if ($exportName -eq 'ql_set_callback') {
+            $retainedCallbackExports++
+        }
+        else {
+            $rawPointerExports++
+        }
+        if ($signature -notmatch
+            'pub\s+unsafe\s+extern\s+"(?:C|system)"\s+fn') {
+            $failures.Add(
+                "$exportName accepts raw pointers or a retained callback but is not an unsafe export in $($sourceFile.FullName).")
+        }
+
+        $documentation = [Collections.Generic.List[string]]::new()
+        for ($docIndex = $lineIndex - 1; $docIndex -ge 0; $docIndex--) {
+            $trimmed = $lines[$docIndex].Trim()
+            if ($trimmed.StartsWith("///", [StringComparison]::Ordinal) -or
+                $trimmed.StartsWith("#[doc", [StringComparison]::Ordinal)) {
+                $documentation.Add($trimmed)
+                continue
+            }
+            break
+        }
+        $documentationText = $documentation -join "`n"
+        if ($documentationText -notmatch
+            '# Safety|ffi_pointer_safety\.md') {
+            $failures.Add(
+                "$exportName is missing an explicit Rustdoc # Safety contract in $($sourceFile.FullName).")
+        }
+    }
+}
+
+if ($rawPointerExports -eq 0) {
+    $failures.Add("No raw-pointer exports were found; the guard did not inspect the ABI.")
+}
+if ($retainedCallbackExports -ne 1) {
+    $failures.Add('Exactly one unsafe retained-callback registration export must be inspected.')
+}
+
+if ($failures.Count -gt 0) {
+    Write-Host "Rust FFI safety guard failed:" -ForegroundColor Red
+    foreach ($failure in $failures) {
+        Write-Host " - $failure" -ForegroundColor Red
+    }
+    exit 1
+}
+
+Write-Host (
+    "Rust FFI safety guard passed; files=$($sourceFiles.Count); raw-pointer exports=$rawPointerExports; retained callbacks=$retainedCallbackExports") `
+    -ForegroundColor Green

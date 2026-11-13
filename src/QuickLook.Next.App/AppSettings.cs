@@ -1,0 +1,151 @@
+using System.Text.Json;
+using Windows.Globalization;
+using QuickLook.Next.Core;
+
+namespace QuickLook.Next.App;
+
+internal sealed record AppSettings(
+    int SchemaVersion = 4,
+    string Language = AppLanguagePolicy.SystemLanguage,
+    string Animation = "system",
+    string TextWrapping = "automatic",
+    string TextSize = "default",
+    bool TextLineNumbers = false,
+    string PreviewWindowLevel = PreviewWindowPolicy.StandardLevelSetting,
+    bool ClosePreviewOnFocusLoss = false)
+{
+    public const int CurrentSchemaVersion = 4;
+    private static readonly string SettingsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "QuickLook.Next");
+    private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "settings.json");
+
+    public static AppSettings Current { get; private set; } = Load();
+
+    public static void ApplyLanguage()
+    {
+        try
+        {
+            ApplicationLanguages.PrimaryLanguageOverride =
+                AppLanguagePolicy.ToPrimaryLanguageOverride(Current.Language);
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "language preference failed: " + ex.Message);
+        }
+    }
+
+    public static bool SaveLanguage(string language)
+    {
+        if (!AppLanguagePolicy.IsSupported(language))
+            return false;
+
+        return Save(Current with { Language = language });
+    }
+
+    public static bool SaveAnimation(string animation)
+    {
+        if (animation is not ("system" or "always" or "still"))
+            return false;
+        return Save(Current with { Animation = animation });
+    }
+
+    public static bool SaveTextWrapping(string textWrapping)
+    {
+        if (textWrapping is not ("automatic" or "always" or "never"))
+            return false;
+        return Save(Current with { TextWrapping = textWrapping });
+    }
+
+    public static bool SaveTextSize(string textSize)
+        => textSize is ("small" or "default" or "large") && Save(Current with { TextSize = textSize });
+
+    public static bool SaveTextLineNumbers(bool visible)
+        => Save(Current with { TextLineNumbers = visible });
+
+    public static bool SavePreviewWindowLevel(string level)
+        => PreviewWindowPolicy.IsSupportedLevel(level) && Save(Current with { PreviewWindowLevel = level });
+
+    public static bool SaveClosePreviewOnFocusLoss(bool enabled)
+        => Save(Current with { ClosePreviewOnFocusLoss = enabled });
+
+    private static bool Save(AppSettings updated)
+    {
+        try
+        {
+            Directory.CreateDirectory(SettingsDirectory);
+            updated = updated with { SchemaVersion = CurrentSchemaVersion };
+            string temporaryPath = SettingsPath + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                File.WriteAllText(temporaryPath, JsonSerializer.Serialize(updated, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(temporaryPath, SettingsPath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(temporaryPath); } catch { }
+            }
+            Current = updated;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "settings save failed: " + ex);
+            return false;
+        }
+    }
+
+    private static AppSettings Load()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath))
+                return new AppSettings();
+            AppSettings? settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath));
+            if (settings is null
+                || settings.SchemaVersion is < 1 or > CurrentSchemaVersion
+                || !AppLanguagePolicy.IsSupported(settings.Language)
+                || settings.Animation is not ("system" or "always" or "still"))
+            {
+                PreserveInvalidSettings();
+                return new AppSettings();
+            }
+            settings = settings with
+            {
+                TextWrapping = settings.SchemaVersion < 2 ? "automatic" : settings.TextWrapping,
+                TextSize = settings.SchemaVersion < 3 ? "default" : settings.TextSize,
+                TextLineNumbers = settings.SchemaVersion >= 3 && settings.TextLineNumbers,
+                PreviewWindowLevel = settings.SchemaVersion < 4
+                    ? PreviewWindowPolicy.StandardLevelSetting
+                    : settings.PreviewWindowLevel,
+                ClosePreviewOnFocusLoss = settings.SchemaVersion >= 4 && settings.ClosePreviewOnFocusLoss,
+            };
+            if (settings.TextWrapping is not ("automatic" or "always" or "never")
+                || settings.TextSize is not ("small" or "default" or "large")
+                || !PreviewWindowPolicy.IsSupportedLevel(settings.PreviewWindowLevel))
+            {
+                PreserveInvalidSettings();
+                return new AppSettings();
+            }
+            return settings with { SchemaVersion = CurrentSchemaVersion };
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "settings load failed: " + ex.Message);
+            PreserveInvalidSettings();
+            return new AppSettings();
+        }
+    }
+
+    private static void PreserveInvalidSettings()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath))
+                File.Move(SettingsPath, SettingsPath + ".invalid", overwrite: true);
+        }
+        catch
+        {
+        }
+    }
+}

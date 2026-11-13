@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.96.0
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
+
+      - name: Run release checks
+        shell: pwsh
+        run: ./tools/release.ps1 -SkipPackage -SkipSystemImageSmoke
+
+      - name: Check NuGet vulnerabilities
+        shell: pwsh
+        run: ./tools/test-nuget-vulnerabilities.ps1
+
+      - name: Audit Rust dependencies
+        shell: pwsh
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked --force
+          cargo audit --file native/Cargo.lock
+
+  website:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install and audit website dependencies
+        working-directory: website
+        run: npm ci && npm audit
+
+      - name: Build website
+        working-directory: website
+        run: npm run build

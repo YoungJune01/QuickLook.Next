@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QuickLook.Next.App/QuickLook.Next.App.csproj" />
+    <Project Path="src/QuickLook.Next.Contracts/QuickLook.Next.Contracts.csproj" />
+    <Project Path="src/QuickLook.Next.Core/QuickLook.Next.Core.csproj" />
+    <Project Path="src/QuickLook.Next.ParserHost/QuickLook.Next.ParserHost.csproj" />
+    <Project Path="src/QuickLook.Next.RasterHost/QuickLook.Next.RasterHost.csproj" />
+    <Project Path="src/QuickLook.Next.ShellBroker/QuickLook.Next.ShellBroker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QuickLook.Next.Core.Tests/QuickLook.Next.Core.Tests.csproj" />
+    <Project Path="tests/QuickLook.Next.ParserHost.IntegrationTests/QuickLook.Next.ParserHost.IntegrationTests.csproj" />
+    <Project Path="tests/QuickLook.Next.RasterHost.IntegrationTests/QuickLook.Next.RasterHost.IntegrationTests.csproj" />
+    <Project Path="tests/QuickLook.Next.ShellBroker.IntegrationTests/QuickLook.Next.ShellBroker.IntegrationTests.csproj" />
+    <Project Path="tests/QuickLook.Next.SupervisedHostCrashProbe/QuickLook.Next.SupervisedHostCrashProbe.csproj" />
+  </Folder>
+</Solution>

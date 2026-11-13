@@ -1,0 +1,272 @@
+<Window
+    x:Class="QuickLook.Next.App.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" SizeChanged="OnContentSizeChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="TitleBar" Height="48" Padding="16,0">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE713;" FontSize="16" />
+                <TextBlock x:Name="TitleBarText" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid x:Name="ContentPanel" MaxWidth="720" Padding="36,20,36,32" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="18">
+                    <TextBlock x:Name="SettingsHeading" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="GeneralHeading" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock x:Name="GeneralDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="AutoStartSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="AutoStartTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="AutoStartDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="AutoStartToggle"
+                                          Grid.Column="1"
+                                          MinHeight="40"
+                                          AutomationProperties.LabeledBy="{x:Bind AutoStartTitle}"
+                                          Toggled="OnAutoStartToggled" />
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="WindowLevelSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="WindowLevelTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="WindowLevelDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox x:Name="WindowLevelCombo" Grid.Column="1" MinHeight="40" HorizontalAlignment="Stretch"
+                                      AutomationProperties.LabeledBy="{x:Bind WindowLevelTitle}"
+                                      SelectionChanged="OnWindowLevelSelectionChanged">
+                                <ComboBoxItem x:Name="StandardWindowLevelItem" Tag="standard" />
+                                <ComboBoxItem x:Name="AlwaysOnTopWindowLevelItem" Tag="always-on-top" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="CloseOnFocusLossSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="CloseOnFocusLossTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="CloseOnFocusLossDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="CloseOnFocusLossToggle" Grid.Column="1" MinHeight="40"
+                                          AutomationProperties.LabeledBy="{x:Bind CloseOnFocusLossTitle}"
+                                          Toggled="OnCloseOnFocusLossToggled" />
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="LanguageSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="LanguageTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="LanguageDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox x:Name="LanguageCombo"
+                                      Grid.Column="1"
+                                      MinHeight="40"
+                                      HorizontalAlignment="Stretch"
+                                      AutomationProperties.LabeledBy="{x:Bind LanguageTitle}"
+                                      SelectionChanged="OnLanguageSelectionChanged">
+                                <ComboBoxItem x:Name="SystemLanguageItem" Tag="system" />
+                                <ComboBoxItem x:Name="EnglishLanguageItem" Tag="en-US" />
+                                <ComboBoxItem x:Name="SimplifiedChineseLanguageItem" Tag="zh-CN" />
+                                <ComboBoxItem x:Name="TraditionalChineseLanguageItem" Tag="zh-TW" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="AnimationSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="AnimationTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="AnimationDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox x:Name="AnimationCombo" Grid.Column="1" MinHeight="40" HorizontalAlignment="Stretch"
+                                      AutomationProperties.LabeledBy="{x:Bind AnimationTitle}"
+                                      SelectionChanged="OnAnimationSelectionChanged">
+                                <ComboBoxItem x:Name="SystemAnimationItem" Tag="system" />
+                                <ComboBoxItem x:Name="AlwaysAnimateItem" Tag="always" />
+                                <ComboBoxItem x:Name="StillAnimationItem" Tag="still" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="TextWrappingSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="TextWrappingTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="TextWrappingDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox x:Name="TextWrappingCombo" Grid.Column="1" MinHeight="40" HorizontalAlignment="Stretch"
+                                      AutomationProperties.LabeledBy="{x:Bind TextWrappingTitle}"
+                                      SelectionChanged="OnTextWrappingSelectionChanged">
+                                <ComboBoxItem x:Name="AutomaticTextWrappingItem" Tag="automatic" />
+                                <ComboBoxItem x:Name="AlwaysTextWrappingItem" Tag="always" />
+                                <ComboBoxItem x:Name="NeverTextWrappingItem" Tag="never" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="TextSizeSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="TextSizeTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="TextSizeDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ComboBox x:Name="TextSizeCombo" Grid.Column="1" MinHeight="40" HorizontalAlignment="Stretch"
+                                      AutomationProperties.LabeledBy="{x:Bind TextSizeTitle}"
+                                      SelectionChanged="OnTextSizeSelectionChanged">
+                                <ComboBoxItem x:Name="SmallTextSizeItem" Tag="small" />
+                                <ComboBoxItem x:Name="DefaultTextSizeItem" Tag="default" />
+                                <ComboBoxItem x:Name="LargeTextSizeItem" Tag="large" />
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="18,14">
+                        <Grid x:Name="TextLineNumbersSettingGrid" ColumnSpacing="20" RowSpacing="10">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="TextLineNumbersTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="TextLineNumbersDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="TextLineNumbersToggle" Grid.Column="1" MinHeight="40"
+                                          AutomationProperties.LabeledBy="{x:Bind TextLineNumbersTitle}"
+                                          Toggled="OnTextLineNumbersToggled" />
+                        </Grid>
+                    </Border>
+
+                    <InfoBar x:Name="RestartInfo" Severity="Informational" IsOpen="False" IsClosable="True" />
+
+                    <StackPanel Spacing="4" Margin="0,6,0,0">
+                        <TextBlock x:Name="AboutHeading" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock x:Name="AboutDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="15">
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <Image x:Name="AppIcon" Width="48" Height="48" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="QuickLook Next" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="VersionText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                            <TextBlock x:Name="ProjectSourceText" TextWrapping="Wrap" />
+                            <Button x:Name="HelpButton" Click="OnHelpClick" HorizontalAlignment="Left">
+                                <TextBlock x:Name="HelpButtonText" />
+                            </Button>
+                            <StackPanel x:Name="ProjectLinksPanel" Orientation="Horizontal" Spacing="10">
+                                <Button x:Name="GitHubButton" Click="OnGitHubClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="14" />
+                                        <TextBlock x:Name="GitHubButtonText" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ReleasesButton" Click="OnReleasesClick">
+                                    <TextBlock x:Name="ReleasesButtonText" />
+                                </Button>
+                                <Button x:Name="CheckUpdatesButton" Click="OnCheckUpdatesClick">
+                                    <TextBlock x:Name="CheckUpdatesButtonText" />
+                                </Button>
+                            </StackPanel>
+                            <InfoBar x:Name="UpdateInfo" IsOpen="False" IsClosable="True"
+                                     AutomationProperties.LiveSetting="Polite" />
+                            <StackPanel Spacing="6">
+                                <TextBlock x:Name="HookStatusTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="HookStatusText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <Button x:Name="RetryHookButton" HorizontalAlignment="Left" Click="OnRetryHookClick">
+                                    <TextBlock x:Name="RetryHookButtonText" />
+                                </Button>
+                            </StackPanel>
+                            <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                            <StackPanel Spacing="5">
+                                <TextBlock x:Name="DiagnosticsTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="DiagnosticsDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <Button x:Name="CreateDiagnosticsButton" MinHeight="40" Margin="0,5,0,0"
+                                        HorizontalAlignment="Left" Click="OnCreateDiagnosticsClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE74E;" FontSize="14" />
+                                        <TextBlock x:Name="CreateDiagnosticsButtonText" />
+                                    </StackPanel>
+                                </Button>
+                                <InfoBar x:Name="DiagnosticsInfo" IsOpen="False" IsClosable="True"
+                                         AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                            <TextBlock x:Name="LicenseText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>

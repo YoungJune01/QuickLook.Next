@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    # Accumulate normal feat/fix commits locally, then push one release: commit to publish them.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release:')
+    runs-on: windows-2025
+    environment: release
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      tag: ${{ steps.package.outputs.tag }}
+      artifact-name: ${{ steps.package.outputs.artifact-name }}
+      msix-version: ${{ steps.package.outputs.msix-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Package stable release
+        id: package
+        uses: ./.github/actions/package-release
+        with:
+          channel: stable
+          release-pfx-base64: ${{ secrets.QUICKLOOK_RELEASE_PFX_BASE64 }}
+          release-pfx-password: ${{ secrets.QUICKLOOK_RELEASE_PFX_PASSWORD }}
+
+  publish:
+    needs: package
+    runs-on: windows-2025
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.package.outputs.artifact-name }}
+          path: artifacts
+
+      - name: Revalidate downloaded installer
+        shell: pwsh
+        run: |
+          ./tools/test-release-artifacts.ps1 `
+            -InstallerPath (Get-Item artifacts/QuickLook.Next-Installer-*.zip).FullName `
+            -ChecksumPath (Get-Item artifacts/QuickLook.Next-Installer-*.zip.sha256).FullName `
+            -ExpectedMsixVersion "${{ needs.package.outputs.msix-version }}" `
+            -ExpectedCertificatePath packaging/QuickLook.Next-Release.cer
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            artifacts/QuickLook.Next-Installer-*.zip
+            artifacts/QuickLook.Next-Installer-*.zip.sha256
+            artifacts/*.spdx.json
+            artifacts/release/*.json
+
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          tag_name: ${{ needs.package.outputs.tag }}
+          name: QuickLook Next ${{ needs.package.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body_path: artifacts/release-notes.md
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/QuickLook.Next-Installer-*.zip
+            artifacts/QuickLook.Next-Installer-*.zip.sha256
+            artifacts/*.spdx.json
+            artifacts/release/*.json

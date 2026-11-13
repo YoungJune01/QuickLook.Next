@@ -1,0 +1,435 @@
+using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Automation;
+using QuickLook.Next.Contracts;
+using QuickLook.Next.Core;
+
+namespace QuickLook.Next.App;
+
+internal sealed class TablePreviewPresenter
+{
+    private const double RowHeaderWidth = 48;
+    private const double MinColumnWidth = 96;
+    private const double MaxColumnWidth = 240;
+    private const double HeaderHeight = 34;
+    private const double RowHeight = 32;
+    private const int MaxViewportCells = 1024;
+    private static readonly FontFamily TableFontFamily = new("Segoe UI");
+
+    private readonly ScrollViewer _scrollViewer;
+    private readonly TextBlock _titleText;
+    private readonly TextBlock _summaryText;
+    private readonly Canvas _canvas;
+    private readonly ScrollViewer _sheetTabsScroller;
+    private readonly StackPanel _sheetTabsPanel;
+    private readonly Func<ElementTheme> _getTheme;
+    private readonly Func<(bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground)> _getHighContrast;
+    private PreviewTable? _table;
+    private double[] _widths = [];
+    private TablePalette? _palette;
+    private int _firstRenderedRow = -1;
+    private int _lastRenderedRow = -1;
+    private int _firstRenderedColumn = -1;
+    private int _lastRenderedColumn = -1;
+    private readonly List<Border> _columnHeaders = [];
+    private readonly List<Border> _rowHeaders = [];
+    private PreviewTableSheet[] _sheets = [];
+    private Border? _corner;
+
+    public TablePreviewPresenter(
+        ScrollViewer scrollViewer,
+        TextBlock titleText,
+        TextBlock summaryText,
+        Canvas canvas,
+        ScrollViewer sheetTabsScroller,
+        StackPanel sheetTabsPanel,
+        Func<ElementTheme> getTheme,
+        Func<(bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground)> getHighContrast)
+    {
+        _scrollViewer = scrollViewer;
+        _titleText = titleText;
+        _summaryText = summaryText;
+        _canvas = canvas;
+        _sheetTabsScroller = sheetTabsScroller;
+        _sheetTabsPanel = sheetTabsPanel;
+        _getTheme = getTheme;
+        _getHighContrast = getHighContrast;
+        _scrollViewer.ViewChanged += OnScrollViewerViewChanged;
+        _scrollViewer.SizeChanged += OnScrollViewerSizeChanged;
+    }
+
+    public TablePreviewResult Render(PreviewReady ready, (double Width, double Height) maxContent)
+    {
+        _titleText.Text = ready.Title;
+        _sheets = ready.Table!.Sheets.Take(8).ToArray();
+        BuildSheetTabs();
+        PreviewTable table = _sheets.Length > 0 ? _sheets[0].Table : ready.Table;
+        ApplyTable(table);
+
+        double tableWidth = RowHeaderWidth + _widths.Sum();
+        double tableHeight = HeaderHeight + _table!.Rows.Length * RowHeight;
+        double widthTarget = Math.Clamp(Math.Min(tableWidth + 72, maxContent.Width), 560, maxContent.Width);
+        double heightTarget = Math.Clamp(Math.Min(tableHeight + 132, maxContent.Height), 320, maxContent.Height);
+        return new TablePreviewResult(UiStrings.BuildPreviewStatus(ready.Kind, ready.Title), widthTarget, heightTarget);
+    }
+
+    private void ApplyTable(PreviewTable source)
+    {
+        PreviewTable table = TablePresentationPolicy.Bound(source);
+        _summaryText.Text = BuildSummary(table);
+        _scrollViewer.ChangeView(0, 0, null, true);
+        int columnCount = Math.Clamp(table.Headers.Length, 1, 64);
+        _table = table;
+        _widths = EstimateColumnWidths(table, columnCount);
+        _palette = CreatePalette();
+
+        double tableWidth = RowHeaderWidth + _widths.Sum();
+        double tableHeight = HeaderHeight + table.Rows.Length * RowHeight;
+        _canvas.Width = tableWidth;
+        _canvas.Height = tableHeight;
+        ResetRenderedRange();
+        RenderViewport();
+    }
+
+    private void BuildSheetTabs()
+    {
+        _sheetTabsPanel.Children.Clear();
+        _sheetTabsScroller.Visibility = _sheets.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+        for (int index = 0; index < _sheets.Length; index++)
+        {
+            int sheetIndex = index;
+            var button = new ToggleButton
+            {
+                Content = _sheets[index].Name,
+                Padding = new Thickness(16, 7, 16, 7),
+                CornerRadius = new CornerRadius(5),
+                Tag = index,
+            };
+            AutomationProperties.SetName(
+                button,
+                UiStrings.Format(UiStrings.Get("TableSheetTabAccessibleNameFormat"), _sheets[index].Name));
+            button.Click += (_, _) => SelectSheet(sheetIndex);
+            _sheetTabsPanel.Children.Add(button);
+        }
+        if (_sheets.Length > 0)
+            _titleText.Text = _sheets[0].Name;
+        UpdateSheetTabSelection(0);
+    }
+
+    private void SelectSheet(int index)
+    {
+        if ((uint)index >= (uint)_sheets.Length)
+            return;
+        ApplyTable(_sheets[index].Table);
+        _titleText.Text = _sheets[index].Name;
+        UpdateSheetTabSelection(index);
+    }
+
+    private void UpdateSheetTabSelection(int selectedIndex)
+    {
+        for (int index = 0; index < _sheetTabsPanel.Children.Count; index++)
+        {
+            if (_sheetTabsPanel.Children[index] is ToggleButton button)
+                button.IsChecked = index == selectedIndex;
+        }
+    }
+
+    public void Clear()
+    {
+        _table = null;
+        _sheets = [];
+        _widths = [];
+        _palette = null;
+        ResetRenderedRange();
+        _canvas.Children.Clear();
+        _canvas.Width = 0;
+        _canvas.Height = 0;
+        _titleText.Text = "";
+        _summaryText.Text = "";
+        _sheetTabsPanel.Children.Clear();
+        _sheetTabsScroller.Visibility = Visibility.Collapsed;
+    }
+
+    public void RefreshPalette()
+    {
+        if (_table is null)
+            return;
+        _palette = CreatePalette();
+        ResetRenderedRange();
+        RenderViewport();
+    }
+
+    private TablePalette CreatePalette()
+    {
+        var highContrast = _getHighContrast();
+        return new TablePalette(_getTheme() != ElementTheme.Light, highContrast);
+    }
+
+    private static string BuildSummary(PreviewTable table)
+    {
+        if (!string.IsNullOrWhiteSpace(table.Summary))
+            return table.Summary;
+        string summary = UiStrings.Format(UiStrings.TableDimensionsFormat, table.TotalRows, table.TotalColumns);
+        if (table.IsPartial)
+            summary += UiStrings.Format(UiStrings.TableShowingRowsFormat, table.Rows.Length);
+        return UiStrings.Format(UiStrings.TableSummaryFormat, table.Format.ToUpperInvariant(), summary);
+    }
+
+    private static double[] EstimateColumnWidths(PreviewTable table, int columnCount)
+    {
+        var widths = new double[columnCount];
+        for (int c = 0; c < columnCount; c++)
+        {
+            int chars = table.Headers.ElementAtOrDefault(c)?.Length ?? 8;
+            foreach (PreviewTableRow row in table.Rows.Take(80))
+            {
+                if (c < row.Cells.Length)
+                    chars = Math.Max(chars, Math.Min(row.Cells[c].Length, 32));
+            }
+            widths[c] = Math.Clamp(chars * 7.8 + 28, MinColumnWidth, MaxColumnWidth);
+        }
+        return widths;
+    }
+
+    private void OnScrollViewerViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (e.IsIntermediate)
+            UpdateStickyHeaders(rebuildColumns: true);
+        else
+            RenderViewport();
+    }
+
+    private void OnScrollViewerSizeChanged(object sender, SizeChangedEventArgs e) => RenderViewport();
+
+    private void RenderViewport()
+    {
+        if (_table is null || _palette is null || _widths.Length == 0)
+            return;
+
+        var canvasOrigin = _canvas.TransformToVisual(_scrollViewer).TransformPoint(new Windows.Foundation.Point());
+        double left = Math.Max(0, _scrollViewer.Padding.Left - canvasOrigin.X);
+        double top = Math.Max(0, _scrollViewer.Padding.Top - canvasOrigin.Y);
+        double viewportWidth = Math.Max(1, _scrollViewer.ViewportWidth - _scrollViewer.Padding.Left - _scrollViewer.Padding.Right);
+        double viewportHeight = Math.Max(1, _scrollViewer.ViewportHeight - _scrollViewer.Padding.Top - _scrollViewer.Padding.Bottom);
+        double right = left + viewportWidth;
+        double bottom = top + viewportHeight;
+        if (right <= left || bottom <= top)
+            return;
+
+        int firstColumn = 0;
+        double columnLeft = RowHeaderWidth;
+        while (firstColumn < _widths.Length && columnLeft + _widths[firstColumn] <= left)
+        {
+            columnLeft += _widths[firstColumn];
+            firstColumn++;
+        }
+
+        int lastColumn = firstColumn;
+        double columnRight = columnLeft;
+        while (lastColumn < _widths.Length && columnRight < right)
+            columnRight += _widths[lastColumn++];
+
+        int firstRow = Math.Max(0, (int)Math.Floor((top - HeaderHeight) / RowHeight));
+        int lastRow = Math.Min(_table.Rows.Length, (int)Math.Ceiling((bottom - HeaderHeight) / RowHeight));
+        int visibleColumns = Math.Max(1, lastColumn - firstColumn);
+        int maxVisibleRows = Math.Max(1, MaxViewportCells / visibleColumns);
+        lastRow = Math.Min(lastRow, firstRow + maxVisibleRows);
+        if (firstRow == _firstRenderedRow
+            && lastRow == _lastRenderedRow
+            && firstColumn == _firstRenderedColumn
+            && lastColumn == _lastRenderedColumn)
+        {
+            UpdateStickyHeaderPositions(left, top);
+            return;
+        }
+
+        _firstRenderedRow = firstRow;
+        _lastRenderedRow = lastRow;
+        _firstRenderedColumn = firstColumn;
+        _lastRenderedColumn = lastColumn;
+        _canvas.Children.Clear();
+        _columnHeaders.Clear();
+        _rowHeaders.Clear();
+        _corner = null;
+
+        RenderStickyColumnHeaders(left, top, firstColumn, lastColumn, columnLeft);
+
+        for (int r = firstRow; r < lastRow; r++)
+        {
+            double y = HeaderHeight + r * RowHeight;
+            Border rowHeader = AddCell((r + 1).ToString(), UiStrings.Format(UiStrings.TableRowHeaderAccessibleNameFormat, r + 1), left, y, RowHeaderWidth, RowHeight, TableCellKind.RowHeader, _palette);
+            Canvas.SetZIndex(rowHeader, 2);
+            _rowHeaders.Add(rowHeader);
+            string[] cells = _table.Rows[r].Cells;
+            double x = columnLeft;
+            for (int c = firstColumn; c < lastColumn; c++)
+            {
+                string value = c < cells.Length ? cells[c] : "";
+                string header = _table.Headers.ElementAtOrDefault(c) ?? UiStrings.Format(UiStrings.TableFallbackColumnFormat, c + 1);
+                string accessibleValue = value.Length == 0 ? UiStrings.TableBlankCell : value;
+                AddCell(value, UiStrings.Format(UiStrings.TableCellAccessibleNameFormat, r + 1, header, accessibleValue), x, y, _widths[c], RowHeight, r % 2 == 0 ? TableCellKind.Cell : TableCellKind.AlternateCell, _palette);
+                x += _widths[c];
+            }
+        }
+    }
+
+    private void UpdateStickyHeaders(bool rebuildColumns)
+    {
+        if (_table is null || _palette is null || _widths.Length == 0)
+            return;
+        var canvasOrigin = _canvas.TransformToVisual(_scrollViewer).TransformPoint(new Windows.Foundation.Point());
+        double left = Math.Max(0, _scrollViewer.Padding.Left - canvasOrigin.X);
+        double top = Math.Max(0, _scrollViewer.Padding.Top - canvasOrigin.Y);
+        if (rebuildColumns)
+        {
+            int firstColumn = 0;
+            double columnLeft = RowHeaderWidth;
+            while (firstColumn < _widths.Length && columnLeft + _widths[firstColumn] <= left)
+            {
+                columnLeft += _widths[firstColumn];
+                firstColumn++;
+            }
+            int lastColumn = firstColumn;
+            double right = left + Math.Max(1, _scrollViewer.ViewportWidth - _scrollViewer.Padding.Left - _scrollViewer.Padding.Right);
+            double columnRight = columnLeft;
+            while (lastColumn < _widths.Length && columnRight < right)
+                columnRight += _widths[lastColumn++];
+            foreach (Border header in _columnHeaders)
+                _canvas.Children.Remove(header);
+            _columnHeaders.Clear();
+            if (_corner is not null)
+                _canvas.Children.Remove(_corner);
+            _corner = null;
+            RenderStickyColumnHeaders(left, top, firstColumn, lastColumn, columnLeft);
+        }
+        UpdateStickyHeaderPositions(left, top);
+    }
+
+    private void RenderStickyColumnHeaders(
+        double left, double top, int firstColumn, int lastColumn, double columnLeft)
+    {
+        if (_table is null || _palette is null)
+            return;
+        _corner = AddCell("", UiStrings.TableCornerAccessibleName, left, top, RowHeaderWidth, HeaderHeight, TableCellKind.Corner, _palette);
+        Canvas.SetZIndex(_corner, 4);
+        double x = columnLeft;
+        for (int c = firstColumn; c < lastColumn; c++)
+        {
+            string header = _table.Headers.ElementAtOrDefault(c) ?? UiStrings.Format(UiStrings.TableFallbackColumnFormat, c + 1);
+            Border border = AddCell(header, UiStrings.Format(UiStrings.TableColumnHeaderAccessibleNameFormat, c + 1, header), x, top, _widths[c], HeaderHeight, TableCellKind.Header, _palette);
+            Canvas.SetZIndex(border, 3);
+            _columnHeaders.Add(border);
+            x += _widths[c];
+        }
+    }
+
+    private void UpdateStickyHeaderPositions(double left, double top)
+    {
+        if (_corner is not null)
+        {
+            Canvas.SetLeft(_corner, left);
+            Canvas.SetTop(_corner, top);
+        }
+        foreach (Border header in _columnHeaders)
+            Canvas.SetTop(header, top);
+        foreach (Border header in _rowHeaders)
+            Canvas.SetLeft(header, left);
+    }
+
+    private void ResetRenderedRange()
+    {
+        _firstRenderedRow = -1;
+        _lastRenderedRow = -1;
+        _firstRenderedColumn = -1;
+        _lastRenderedColumn = -1;
+        _columnHeaders.Clear();
+        _rowHeaders.Clear();
+        _corner = null;
+    }
+
+    private Border AddCell(string text, string accessibleName, double x, double y, double width, double height, TableCellKind kind, TablePalette palette)
+    {
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            FontSize = kind is TableCellKind.Header or TableCellKind.RowHeader ? 12 : 13,
+            FontWeight = new Windows.UI.Text.FontWeight { Weight = kind is TableCellKind.Header ? (ushort)600 : (ushort)400 },
+            FontFamily = TableFontFamily,
+            Foreground = palette.For(kind is TableCellKind.Header or TableCellKind.RowHeader or TableCellKind.Corner
+                ? TableCellKind.HeaderText
+                : TableCellKind.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.NoWrap,
+            MaxWidth = Math.Max(8, width - 18),
+        };
+        AutomationProperties.SetName(textBlock, accessibleName);
+        var border = new Border
+        {
+            Width = width,
+            Height = height,
+            Padding = kind is TableCellKind.Header or TableCellKind.RowHeader or TableCellKind.Corner
+                ? new Thickness(9, 0, 9, 0)
+                : new Thickness(10, 0, 10, 0),
+            Background = palette.For(kind),
+            BorderBrush = palette.GridLine,
+            BorderThickness = new Thickness(0, 0, 1, 1),
+            Child = textBlock,
+        };
+        Canvas.SetLeft(border, x);
+        Canvas.SetTop(border, y);
+        _canvas.Children.Add(border);
+        return border;
+    }
+
+    private sealed class TablePalette
+    {
+        private readonly bool _dark;
+        private readonly Dictionary<TableCellKind, SolidColorBrush> _brushes;
+
+        private readonly (bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground) _highContrast;
+
+        public TablePalette(bool dark, (bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground) highContrast)
+        {
+            _dark = dark;
+            _highContrast = highContrast;
+            _brushes = [];
+            GridLine = For(TableCellKind.GridLine);
+        }
+
+        public SolidColorBrush GridLine { get; }
+
+        public SolidColorBrush For(TableCellKind kind) => _brushes.TryGetValue(kind, out var brush)
+            ? brush
+            : _brushes[kind] = new SolidColorBrush(_highContrast.Enabled
+                ? kind is TableCellKind.HeaderText or TableCellKind.Text
+                    ? _highContrast.Foreground
+                    : _highContrast.Background
+                : kind switch
+                {
+                    TableCellKind.Header or TableCellKind.RowHeader or TableCellKind.Corner => _dark ? ColorHelper.FromArgb(255, 45, 45, 48) : ColorHelper.FromArgb(255, 246, 247, 249),
+                    TableCellKind.AlternateCell => _dark ? ColorHelper.FromArgb(22, 255, 255, 255) : ColorHelper.FromArgb(255, 250, 251, 252),
+                    TableCellKind.GridLine => _dark ? ColorHelper.FromArgb(255, 62, 62, 66) : ColorHelper.FromArgb(255, 226, 230, 235),
+                    TableCellKind.HeaderText => _dark ? ColorHelper.FromArgb(255, 218, 222, 230) : ColorHelper.FromArgb(255, 76, 83, 96),
+                    TableCellKind.Text => _dark ? ColorHelper.FromArgb(255, 244, 244, 244) : ColorHelper.FromArgb(255, 28, 31, 36),
+                    _ => _dark ? ColorHelper.FromArgb(255, 32, 32, 32) : Colors.White,
+                });
+    }
+
+    private enum TableCellKind
+    {
+        Cell,
+        AlternateCell,
+        Header,
+        RowHeader,
+        Corner,
+        GridLine,
+        HeaderText,
+        Text,
+    }
+}
+
+internal readonly record struct TablePreviewResult(string Status, double Width, double Height);

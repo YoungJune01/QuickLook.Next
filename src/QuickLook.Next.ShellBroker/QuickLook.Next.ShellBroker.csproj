@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AssemblyName>QuickLook.Next.ShellBroker</AssemblyName>
+    <RootNamespace>QuickLook.Next.ShellBroker</RootNamespace>
+    <QuickLookUsesNative>true</QuickLookUsesNative>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QuickLook.Next.Core\QuickLook.Next.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,176 @@
+using QuickLook.Next.Core;
+
+namespace QuickLook.Next.App;
+
+internal enum PreviewNavigationSource
+{
+    ExplorerOpen,
+    ExplorerSwitch,
+    WindowNavigation,
+}
+
+internal readonly record struct PreviewSessionSnapshot(int Generation, CancellationToken Token, string Path, PreviewNavigationSource Source);
+internal readonly record struct PreviewErrorContext(
+    PreviewSessionSnapshot Snapshot,
+    bool CanRetry,
+    PreviewFailureDiagnostic Diagnostics)
+{
+    public string Path => Snapshot.Path;
+}
+
+internal sealed class PreviewSession
+{
+    private CancellationTokenSource? _operationCts;
+    private PreviewErrorContext? _errorContext;
+
+    public int Generation { get; private set; }
+    public string? CurrentPath { get; private set; }
+    public string? PendingPath { get; private set; }
+    public string? CurrentRequestId { get; private set; }
+    public string? ExplorerAnchorPath { get; private set; }
+    public PreviewNavigationSource Source { get; private set; } = PreviewNavigationSource.ExplorerOpen;
+    public string? ActivePath => PendingPath ?? CurrentPath;
+    public PreviewErrorContext? ErrorContext => _errorContext;
+    public string? ErrorActionPath
+        => _errorContext is PreviewErrorContext context && IsCurrentError(context)
+            ? context.Path
+            : null;
+
+    public CancellationToken Token => _operationCts?.Token ?? CancellationToken.None;
+
+    public PreviewSessionSnapshot Begin(string path, PreviewNavigationSource source)
+    {
+        CancelOperation();
+        _operationCts = new CancellationTokenSource();
+        Generation++;
+        PendingPath = path;
+        _errorContext = null;
+        Source = source;
+        if (source is PreviewNavigationSource.ExplorerOpen or PreviewNavigationSource.ExplorerSwitch)
+            ExplorerAnchorPath = path;
+
+        return new PreviewSessionSnapshot(Generation, Token, path, source);
+    }
+
+    public PreviewSessionSnapshot BeginClose()
+    {
+        CancelOperation();
+        _operationCts = new CancellationTokenSource();
+        Generation++;
+        PendingPath = null;
+        _errorContext = null;
+        return new PreviewSessionSnapshot(Generation, Token, CurrentPath ?? "", Source);
+    }
+
+    public void CommitPath(string path)
+    {
+        CurrentPath = path;
+        PendingPath = null;
+    }
+
+    public void Clear()
+    {
+        CurrentPath = null;
+        PendingPath = null;
+        CurrentRequestId = null;
+        ExplorerAnchorPath = null;
+        _errorContext = null;
+    }
+
+    public void SetRequestId(string? requestId)
+        => CurrentRequestId = requestId;
+
+    public bool IsCurrent(int generation, CancellationToken token)
+        => generation == Generation && !token.IsCancellationRequested;
+
+    public bool IsCurrent(PreviewSessionSnapshot snapshot)
+        => IsCurrent(snapshot.Generation, snapshot.Token);
+
+    public bool TryGetActiveSnapshot(string path, out PreviewSessionSnapshot snapshot)
+    {
+        snapshot = default;
+        if (Token.IsCancellationRequested
+            || string.IsNullOrWhiteSpace(path)
+            || string.IsNullOrWhiteSpace(ActivePath)
+            || !string.Equals(ActivePath, path, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        snapshot = new PreviewSessionSnapshot(Generation, Token, path, Source);
+        return true;
+    }
+
+    public bool TryBindError(
+        PreviewSessionSnapshot snapshot,
+        bool canRetry,
+        PreviewFailureDiagnostic diagnostics,
+        out PreviewErrorContext context)
+    {
+        context = default;
+        if (!IsCurrent(snapshot)
+            || string.IsNullOrWhiteSpace(ActivePath)
+            || !string.Equals(ActivePath, snapshot.Path, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        context = new PreviewErrorContext(snapshot, canRetry, diagnostics);
+        _errorContext = context;
+        return true;
+    }
+
+    public bool IsCurrentError(PreviewErrorContext context)
+        => _errorContext is PreviewErrorContext current
+            && current == context
+            && IsCurrent(context.Snapshot)
+            && string.Equals(ActivePath, context.Path, StringComparison.OrdinalIgnoreCase);
+
+    public bool IsCurrentRequest(string requestId)
+        => string.Equals(CurrentRequestId, requestId, StringComparison.Ordinal);
+
+    public bool IsCurrentPath(string? path)
+        => !string.IsNullOrWhiteSpace(path)
+            && !string.IsNullOrWhiteSpace(CurrentPath)
+            && string.Equals(CurrentPath, path, StringComparison.OrdinalIgnoreCase);
+
+    public bool ShouldAcceptExplorerSwitch(string path, bool previewVisible)
+    {
+        if (!previewVisible)
+            return false;
+        if (IsCurrentPath(path))
+            return false;
+
+        return Source != PreviewNavigationSource.WindowNavigation
+            || string.IsNullOrWhiteSpace(ExplorerAnchorPath)
+            || !string.Equals(path, ExplorerAnchorPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Whether the preview window may activate (take window-level keyboard focus). The initial
+    /// Explorer-open session is activated so Space gives the preview immediate keyboard ownership;
+    /// later Explorer switches remain non-activating so the shell can continue selection follow-up.
+    /// </summary>
+    public bool ShouldActivateWindow(bool contentNeedsFocus)
+        => Source == PreviewNavigationSource.ExplorerOpen
+            || contentNeedsFocus && Source == PreviewNavigationSource.WindowNavigation;
+
+    /// <summary>
+    /// Whether preview content may move element-level keyboard focus (error buttons, text content).
+    /// Initial Explorer-open and in-window navigation sessions may move element-level focus. Explorer
+    /// switches keep the shell focused so the next selection event can be consumed by the hook.
+    /// </summary>
+    public bool ShouldFocusContent()
+        => Source is PreviewNavigationSource.ExplorerOpen or PreviewNavigationSource.WindowNavigation;
+
+    public void CancelOperation()
+    {
+        if (_operationCts is null)
+            return;
+
+        try { _operationCts.Cancel(); }
+        catch { }
+        _operationCts.Dispose();
+        _operationCts = null;
+    }
+}

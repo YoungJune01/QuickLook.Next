@@ -1,0 +1,1498 @@
+<Window
+    x:Class="QuickLook.Next.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:QuickLook.Next.App">
+    <!-- Transparent root so the window's Mica/Acrylic backdrop shows through (margins & image letterbox). -->
+    <Grid x:Name="RootGrid" Background="Transparent" UseLayoutRounding="True">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <Style x:Key="ListingHeaderButtonStyle" TargetType="Button">
+                    <Setter Property="MinHeight" Value="28" />
+                    <Setter Property="Padding" Value="8,0" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="CornerRadius" Value="4" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Setter Property="HorizontalContentAlignment" Value="Left" />
+                </Style>
+                <Style x:Key="PreviewIconButtonStyle" TargetType="Button">
+                    <Setter Property="Width" Value="40" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="CornerRadius" Value="6" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Style>
+                <Style x:Key="PreviewIconToggleButtonStyle" TargetType="ToggleButton">
+                    <Setter Property="Width" Value="40" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="CornerRadius" Value="6" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Style>
+                <Style x:Key="PreviewZoomPresetButtonStyle" TargetType="Button">
+                    <Setter Property="Width" Value="46" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="CornerRadius" Value="16" />
+                    <Setter Property="Background" Value="{ThemeResource PreviewHeroSurfaceBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource PreviewSurfaceBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Style>
+                <ControlTemplate x:Key="ListingFolderColorIconTemplate" TargetType="ContentControl">
+                    <Viewbox Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="{ThemeResource ListingFolderBackIconBrush}"
+                                  Data="M2,6 C2,4.9 2.9,4 4,4 L9,4 L11,7 L20,7 C21.1,7 22,7.9 22,9 L22,19 C22,20.1 21.1,21 20,21 L4,21 C2.9,21 2,20.1 2,19 Z" />
+                            <Path Fill="{ThemeResource ListingFolderIconBrush}"
+                                  Data="M2,9 L22,9 L20.5,21 L3.5,21 Z" />
+                            <Path Fill="{ThemeResource ListingFolderHighlightIconBrush}"
+                                  Data="M4,10 L20,10 L19.75,12 L3.75,12 Z" />
+                        </Canvas>
+                    </Viewbox>
+                </ControlTemplate>
+                <ControlTemplate x:Key="ListingArchiveColorIconTemplate" TargetType="ContentControl">
+                    <Viewbox Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="{ThemeResource ListingArchiveIconBrush}"
+                                  Data="M4,7 L20,7 C21.1,7 22,7.9 22,9 L22,20 C22,21.1 21.1,22 20,22 L4,22 C2.9,22 2,21.1 2,20 L2,9 C2,7.9 2.9,7 4,7 Z" />
+                            <Path Fill="{ThemeResource ListingArchiveLidIconBrush}"
+                                  Data="M3,3 L21,3 C21.6,3 22,3.4 22,4 L22,8 L2,8 L2,4 C2,3.4 2.4,3 3,3 Z" />
+                            <Path Fill="{ThemeResource ListingArchiveBandIconBrush}"
+                                  Data="M10,3 L14,3 L14,22 L10,22 Z" />
+                            <Path Fill="{ThemeResource ListingArchiveHighlightIconBrush}"
+                                  Data="M10,11 L14,11 L14,14 L10,14 Z" />
+                        </Canvas>
+                    </Viewbox>
+                </ControlTemplate>
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                        <SolidColorBrush x:Key="PreviewSurfaceBrush" Color="#F8FFFFFF" />
+                        <SolidColorBrush x:Key="PreviewSurfaceBorderBrush" Color="#18000000" />
+                        <SolidColorBrush x:Key="PreviewHeroSurfaceBrush" Color="#0A000000" />
+                        <SolidColorBrush x:Key="PreviewFloatingSurfaceBrush" Color="#EBFFFFFF" />
+                        <SolidColorBrush x:Key="ExplorerListingSurfaceBrush" Color="#F7FFFFFF" />
+                        <SolidColorBrush x:Key="ListingFolderIconBrush" Color="#FFC83D" />
+                        <SolidColorBrush x:Key="ListingFolderBackIconBrush" Color="#C97A00" />
+                        <SolidColorBrush x:Key="ListingFolderHighlightIconBrush" Color="#FFF1A8" />
+                        <SolidColorBrush x:Key="ListingArchiveIconBrush" Color="#EA6A17" />
+                        <SolidColorBrush x:Key="ListingArchiveLidIconBrush" Color="#FFA33C" />
+                        <SolidColorBrush x:Key="ListingArchiveBandIconBrush" Color="#3478F6" />
+                        <SolidColorBrush x:Key="ListingArchiveHighlightIconBrush" Color="#C8DCFF" />
+                        <SolidColorBrush x:Key="ListingNeutralIconBrush" Color="#8A000000" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                        <SolidColorBrush x:Key="PreviewSurfaceBrush" Color="#D91F1F1F" />
+                        <SolidColorBrush x:Key="PreviewSurfaceBorderBrush" Color="#24FFFFFF" />
+                        <SolidColorBrush x:Key="PreviewHeroSurfaceBrush" Color="#12FFFFFF" />
+                        <SolidColorBrush x:Key="PreviewFloatingSurfaceBrush" Color="#E61F1F1F" />
+                        <SolidColorBrush x:Key="ExplorerListingSurfaceBrush" Color="#D41F1F1F" />
+                        <SolidColorBrush x:Key="ListingFolderIconBrush" Color="#FFD45A" />
+                        <SolidColorBrush x:Key="ListingFolderBackIconBrush" Color="#B87300" />
+                        <SolidColorBrush x:Key="ListingFolderHighlightIconBrush" Color="#FFF3AE" />
+                        <SolidColorBrush x:Key="ListingArchiveIconBrush" Color="#F17A27" />
+                        <SolidColorBrush x:Key="ListingArchiveLidIconBrush" Color="#FFB24D" />
+                        <SolidColorBrush x:Key="ListingArchiveBandIconBrush" Color="#5B96FF" />
+                        <SolidColorBrush x:Key="ListingArchiveHighlightIconBrush" Color="#D7E6FF" />
+                        <SolidColorBrush x:Key="ListingNeutralIconBrush" Color="#C8FFFFFF" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="HighContrast">
+                        <SolidColorBrush x:Key="PreviewSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                        <SolidColorBrush x:Key="PreviewSurfaceBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                        <SolidColorBrush x:Key="PreviewHeroSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                        <SolidColorBrush x:Key="PreviewFloatingSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                        <SolidColorBrush x:Key="ExplorerListingSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                        <SolidColorBrush x:Key="ListingFolderIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                        <SolidColorBrush x:Key="ListingFolderBackIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                        <SolidColorBrush x:Key="ListingFolderHighlightIconBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                        <SolidColorBrush x:Key="ListingArchiveIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                        <SolidColorBrush x:Key="ListingArchiveLidIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                        <SolidColorBrush x:Key="ListingArchiveBandIconBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                        <SolidColorBrush x:Key="ListingArchiveHighlightIconBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                        <SolidColorBrush x:Key="ListingNeutralIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+            </ResourceDictionary>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Grid x:Name="AppTitleBar"
+              x:Uid="AppTitleBar"
+              Grid.Row="0"
+              Height="52"
+              Background="Transparent"
+              ColumnSpacing="12"
+              Padding="14,0"
+              AutomationProperties.Name="Preview title bar">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="1" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE945;"
+                          FontSize="17"
+                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                <TextBlock x:Uid="AppBrandText"
+                           Text="QuickLook Next"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+            </StackPanel>
+            <Border Grid.Column="1"
+                    Width="1"
+                    Height="18"
+                    VerticalAlignment="Center"
+                    Background="{ThemeResource PreviewSurfaceBorderBrush}" />
+            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                <TextBlock x:Name="PreviewTitleText"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <TextBlock x:Name="PreviewMetaText"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <Border Grid.Column="3"
+                    MinWidth="52"
+                    Height="26"
+                    Padding="10,0"
+                    VerticalAlignment="Center"
+                    CornerRadius="13"
+                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1">
+                <TextBlock x:Name="PreviewKindPillText"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Border>
+        </Grid>
+
+        <!-- Content Area -->
+        <Grid x:Name="PreviewContentHost"
+              x:Uid="PreviewContentHost"
+              Grid.Row="1"
+              AutomationProperties.Name="Preview content">
+            <Border x:Name="PreviewRoot"
+                    x:Uid="PreviewRoot"
+                    Margin="14,0,14,14"
+                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                    AutomationProperties.Name="Image preview surface"
+                    AutomationProperties.HelpText="Use the mouse wheel to zoom, drag to pan, or hold Shift and press an arrow key to pan." />
+            <Image x:Name="RasterFallbackImage"
+                   Margin="14,0,14,14"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch"
+                   IsHitTestVisible="False"
+                   Stretch="Uniform"
+                   Visibility="Collapsed" />
+            <Border x:Name="AnimatedImagePreviewRoot"
+                    x:Uid="AnimatedImagePreviewRoot"
+                    Visibility="Collapsed"
+                    Margin="14,0,14,14"
+                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                    AutomationProperties.Name="Animated image preview"
+                    AutomationProperties.HelpText="Use the mouse wheel to zoom, drag to pan, or hold Shift and press an arrow key to pan.">
+                <Grid>
+                    <Image x:Name="AnimatedImagePreviewImage"
+                           x:Uid="AnimatedImagePreviewImage"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Stretch="Fill"
+                           AutomationProperties.Name="Animated image content" />
+                </Grid>
+            </Border>
+            <ScrollViewer x:Name="PdfScrollViewer"
+                          x:Uid="PdfScrollViewer"
+                          Visibility="Collapsed"
+                          Margin="14,0,14,14"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="{ThemeResource PreviewSurfaceBrush}"
+                          BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          AutomationProperties.Name="PDF preview pages">
+                <StackPanel x:Name="PdfPagesPanel"
+                            HorizontalAlignment="Center"
+                            Padding="0,16,0,16"
+                            Spacing="16" />
+            </ScrollViewer>
+            <Border x:Name="PdfDocumentStatePanel"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Margin="24,72,24,0"
+                    Padding="12,8"
+                    IsHitTestVisible="False"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <TextBlock x:Name="PdfDocumentStateText"
+                           MaxWidth="440"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.LiveSetting="Polite" />
+            </Border>
+            <Border x:Name="PdfPagerBar"
+                    x:Uid="PdfPagerBar"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="26,12,0,0"
+                    Padding="6"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="PDF page navigation">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button x:Name="PreviousPdfPageButton"
+                            x:Uid="PreviousPdfPageButton"
+                            Click="OnPreviousPdfPageClick"
+                            Style="{StaticResource PreviewIconButtonStyle}"
+                            AutomationProperties.Name="Previous PDF page">
+                        <FontIcon Glyph="&#xE76B;" FontSize="14" />
+                    </Button>
+                    <TextBlock x:Name="PdfPageIndicatorText"
+                               x:Uid="PdfPageIndicatorText"
+                               MinWidth="62"
+                               VerticalAlignment="Center"
+                               TextAlignment="Center"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               AutomationProperties.Name="Current PDF page"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <Button x:Name="NextPdfPageButton"
+                            x:Uid="NextPdfPageButton"
+                            Click="OnNextPdfPageClick"
+                            Style="{StaticResource PreviewIconButtonStyle}"
+                            AutomationProperties.Name="Next PDF page">
+                        <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                    </Button>
+                </StackPanel>
+            </Border>
+            <Border x:Name="PdfSearchBar"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,26,0"
+                    Padding="6"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid ColumnSpacing="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PdfSearchBox"
+                             MaxLength="256"
+                             MinHeight="40"
+                             TextChanged="OnPdfSearchTextChanged"
+                             KeyDown="OnPdfSearchBoxKeyDown" />
+                    <ProgressRing x:Name="PdfSearchProgressRing"
+                                  Grid.Column="1"
+                                  Width="20"
+                                  Height="20"
+                                  IsActive="False"
+                                  Visibility="Collapsed"
+                                  VerticalAlignment="Center" />
+                    <TextBlock x:Name="PdfSearchStatusText"
+                               Grid.Column="2"
+                               MaxWidth="170"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock x:Name="PdfSearchCountText"
+                               Grid.Column="3"
+                               MinWidth="54"
+                               VerticalAlignment="Center"
+                               TextAlignment="Center"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <Button x:Name="PdfSearchPreviousButton"
+                            Grid.Column="4"
+                            Click="OnPdfSearchPreviousClick"
+                            Style="{StaticResource PreviewIconButtonStyle}">
+                        <FontIcon Glyph="&#xE70E;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="PdfSearchNextButton"
+                            Grid.Column="5"
+                            Click="OnPdfSearchNextClick"
+                            Style="{StaticResource PreviewIconButtonStyle}">
+                        <FontIcon Glyph="&#xE70D;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="PdfCopyPageTextButton"
+                            Grid.Column="6"
+                            Click="OnPdfCopyPageTextClick"
+                            Style="{StaticResource PreviewIconButtonStyle}">
+                        <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                    </Button>
+                    <Button x:Name="PdfSearchCloseButton"
+                            Grid.Column="7"
+                            Click="OnPdfSearchCloseClick"
+                            Style="{StaticResource PreviewIconButtonStyle}">
+                        <FontIcon Glyph="&#xE711;" FontSize="14" />
+                    </Button>
+                </Grid>
+            </Border>
+            <Border x:Name="MarkdownOutlinePanel"
+                    x:Uid="MarkdownOutlinePanel"
+                    Visibility="Collapsed"
+                    Width="188"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Stretch"
+                    Margin="14,0,0,14"
+                    Padding="8"
+                    Background="{ThemeResource PreviewSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Markdown headings">
+                <ListView x:Name="MarkdownOutlineList"
+                          x:Uid="MarkdownOutlineList"
+                          SelectionMode="Single"
+                          IsItemClickEnabled="True"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          AutomationProperties.Name="Markdown heading navigation">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Title}"
+                                       Margin="{Binding Margin}"
+                                       FontSize="{Binding FontSize}"
+                                       FontWeight="{Binding FontWeight}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+            <Border x:Name="TextPreviewContainer"
+                    x:Uid="TextPreviewContainer"
+                    Visibility="Collapsed"
+                    Margin="14,0,14,14"
+                    Background="{ThemeResource PreviewSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Text preview">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid x:Name="TextHeroPanel"
+                          Grid.Row="0"
+                          Visibility="Collapsed"
+                          ColumnSpacing="14"
+                          Margin="24,24,24,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="TextHeroFrame"
+                                Width="64"
+                                Height="64"
+                                CornerRadius="8"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                Background="{ThemeResource PreviewHeroSurfaceBrush}">
+                            <Image x:Name="TextHeroImage"
+                                   Stretch="Uniform"
+                                   Margin="6" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="2">
+                            <TextBlock x:Name="TextHeroTitle"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="TextHeroSubtitle"
+                                       FontSize="12"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                    <Border x:Name="TextSearchBar"
+                            Grid.Row="1"
+                            Visibility="Collapsed"
+                            Margin="24,12,24,10"
+                            Padding="8"
+                            Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                        <Grid ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TextSearchBox"
+                                     MinWidth="120"
+                                     MinHeight="40"
+                                     HorizontalAlignment="Stretch"
+                                     TextChanged="OnTextSearchTextChanged"
+                                     KeyDown="OnTextSearchBoxKeyDown" />
+                            <TextBlock x:Name="TextSearchCountText"
+                                       Grid.Column="1"
+                                       MinWidth="54"
+                                       VerticalAlignment="Center"
+                                       TextAlignment="Center"
+                                       AutomationProperties.LiveSetting="Polite" />
+                            <Button x:Name="TextSearchPreviousButton"
+                                    Grid.Column="2"
+                                    Click="OnTextSearchPreviousClick"
+                                    Style="{StaticResource PreviewIconButtonStyle}">
+                                <FontIcon Glyph="&#xE70E;" FontSize="14" />
+                            </Button>
+                            <Button x:Name="TextSearchNextButton"
+                                    Grid.Column="3"
+                                    Click="OnTextSearchNextClick"
+                                    Style="{StaticResource PreviewIconButtonStyle}">
+                                <FontIcon Glyph="&#xE70D;" FontSize="14" />
+                            </Button>
+                            <Button x:Name="TextSearchCloseButton"
+                                    Grid.Column="4"
+                                    Click="OnTextSearchCloseClick"
+                                    Style="{StaticResource PreviewIconButtonStyle}">
+                                <FontIcon Glyph="&#xE711;" FontSize="14" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer x:Name="TextScrollViewer"
+                                  x:Uid="TextScrollViewer"
+                                  Grid.Row="2"
+                                  Visibility="Visible"
+                                  Padding="24"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="14">
+                            <RichTextBlock x:Name="TextPreviewBlock"
+                                           x:Uid="TextPreviewBlock"
+                                           IsTextSelectionEnabled="True"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                           FontSize="14"
+                                           FontFamily="Segoe UI"
+                                           TextWrapping="Wrap"
+                                           MaxWidth="980"
+                                           AutomationProperties.Name="Text preview content" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ListView x:Name="TextListView"
+                              x:Uid="TextListView"
+                              Grid.Row="2"
+                              Visibility="Collapsed"
+                              Padding="24"
+                               SelectionMode="Extended"
+                               IsItemClickEnabled="False"
+                               ShowsScrollingPlaceholders="False"
+                               HorizontalContentAlignment="Stretch">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:TextLineItem">
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LineNumberText"
+                                               Text="{Binding LineNumber}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               FontSize="13"
+                                               FontFamily="Cascadia Mono, Consolas"
+                                               HorizontalAlignment="Right"
+                                               Margin="0,0,16,0"
+                                               VerticalAlignment="Top" />
+                                    <TextBlock x:Name="LineContentText"
+                                               Grid.Column="1"
+                                               Text="{Binding Text}"
+                                               IsTextSelectionEnabled="True"
+                                               FontSize="13"
+                                               FontFamily="Cascadia Mono, Consolas"
+                                               TextWrapping="NoWrap"
+                                               VerticalAlignment="Top" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <ListView x:Name="MarkdownListView"
+                              x:Uid="MarkdownListView"
+                              Grid.Row="2"
+                              Visibility="Collapsed"
+                              Padding="24"
+                              Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="False"
+                              ShowsScrollingPlaceholders="False"
+                              HorizontalContentAlignment="Stretch"
+                              ScrollViewer.HorizontalScrollMode="Enabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              AutomationProperties.Name="Markdown document content">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:MarkdownListItem">
+                                <ContentControl x:Name="MarkdownContentHost"
+                                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                HorizontalContentAlignment="Stretch" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+        </Grid>
+    </Border>
+            <Grid x:Name="TablePreviewContainer"
+                  Visibility="Collapsed"
+                  Margin="14,0,14,14"
+                  RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ScrollViewer x:Name="TableScrollViewer"
+                              x:Uid="TableScrollViewer"
+                              Padding="20"
+                              HorizontalScrollMode="Enabled"
+                              HorizontalScrollBarVisibility="Visible"
+                              VerticalScrollBarVisibility="Auto"
+                              Background="{ThemeResource PreviewSurfaceBrush}"
+                              BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                              BorderThickness="1"
+                              CornerRadius="8"
+                              AutomationProperties.Name="Table preview">
+                <StackPanel Spacing="14">
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="48"
+                                Height="48"
+                                CornerRadius="8"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                Background="{ThemeResource PreviewHeroSurfaceBrush}">
+                            <FontIcon Glyph="&#xE80A;"
+                                      FontSize="22"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="3">
+                            <TextBlock x:Name="TableTitleText"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="TableSummaryText"
+                                       FontSize="12"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                    <Border Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            HorizontalAlignment="Left">
+                <Canvas x:Name="TableGrid"
+                        x:Uid="TableGrid"
+                                AutomationProperties.Name="Delimited table cells" />
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+                <ScrollViewer x:Name="TableSheetTabsScroller"
+                              Grid.Row="1"
+                              Visibility="Collapsed"
+                              HorizontalScrollMode="Enabled"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Disabled"
+                              VerticalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="TableSheetTabsPanel"
+                                Orientation="Horizontal"
+                                Spacing="4" />
+                </ScrollViewer>
+            </Grid>
+            <ScrollViewer x:Name="OfficeScrollViewer"
+                          x:Uid="OfficeScrollViewer"
+                          Visibility="Collapsed"
+                          Margin="14,0,14,14"
+                          Padding="20,58,20,20"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="{ThemeResource PreviewSurfaceBrush}"
+                          BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          AutomationProperties.Name="Office document preview">
+                <StackPanel x:Name="OfficePagesPanel"
+                            HorizontalAlignment="Center"
+                            Spacing="18" />
+            </ScrollViewer>
+            <Border x:Name="OfficeCoveragePanel"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="26,12,26,0"
+                    Padding="12,8"
+                    IsHitTestVisible="False"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <TextBlock x:Name="OfficeCoverageText"
+                           MaxWidth="460"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.LiveSetting="Polite" />
+            </Border>
+            <MediaPlayerElement x:Name="MediaPreviewElement"
+                                x:Uid="MediaPreviewElement"
+                                Visibility="Collapsed"
+                                Margin="14,0,14,14"
+                                AreTransportControlsEnabled="True"
+                                AutoPlay="True"
+                                Background="Transparent"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                AutomationProperties.Name="Media preview player" />
+            <Border x:Name="PreviewInfoRail"
+                    x:Uid="PreviewInfoRail"
+                    Visibility="Collapsed"
+                    Width="246"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Margin="0,0,14,82"
+                    Padding="14"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Preview details">
+                <Grid RowSpacing="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="8" HorizontalAlignment="Stretch">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="InfoTabButton"
+                                    x:Uid="InfoTabButton"
+                                    Height="50"
+                                    Click="OnPreviewInfoTabClick"
+                                    CornerRadius="6"
+                                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    AutomationProperties.Name="Show file information">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                    <FontIcon Glyph="&#xE946;" FontSize="15" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                    <TextBlock x:Uid="InfoTabText" Text="Info" FontSize="10" FontWeight="SemiBold" />
+                                    <Border x:Name="InfoTabUnderline" Width="24" Height="2" CornerRadius="1" Background="{ThemeResource AccentFillColorDefaultBrush}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ExifTabButton"
+                                    x:Uid="ExifTabButton"
+                                    Grid.Column="1"
+                                    Height="50"
+                                    Click="OnPreviewExifTabClick"
+                                    CornerRadius="6"
+                                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                    BorderThickness="0"
+                                    AutomationProperties.Name="Show EXIF information">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                    <FontIcon Glyph="&#xE713;" FontSize="15" />
+                                    <TextBlock x:Uid="ExifTabText" Text="EXIF" FontSize="10" />
+                                    <Border x:Name="ExifTabUnderline" Width="24" Height="2" CornerRadius="1" Background="{ThemeResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="MoreTabButton"
+                                    x:Uid="MoreTabButton"
+                                    Grid.Column="2"
+                                    Height="50"
+                                    Click="OnPreviewMoreTabClick"
+                                    CornerRadius="6"
+                                    Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                    BorderThickness="0"
+                                    AutomationProperties.Name="Show more preview actions">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                    <FontIcon Glyph="&#xE712;" FontSize="15" />
+                                    <TextBlock x:Uid="MoreTabText" Text="More" FontSize="10" />
+                                    <Border x:Name="MoreTabUnderline" Width="24" Height="2" CornerRadius="1" Background="{ThemeResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <Rectangle Height="1" Fill="{ThemeResource PreviewSurfaceBorderBrush}" />
+                        <StackPanel x:Name="ImageWaveformPanel"
+                                    x:Uid="ImageWaveformPanel"
+                                    Visibility="Collapsed"
+                                    Spacing="6"
+                                    AutomationProperties.HelpText="Horizontal position follows the image; vertical position shows channel intensity from 0 to 255.">
+                            <Grid>
+                                <TextBlock x:Uid="ImageWaveformLabel"
+                                           Text="RGB waveform"
+                                           FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="R" FontSize="11" FontWeight="SemiBold" Foreground="#FFFF656A" />
+                                    <TextBlock Text="G" FontSize="11" FontWeight="SemiBold" Foreground="#FF55D67B" />
+                                    <TextBlock Text="B" FontSize="11" FontWeight="SemiBold" Foreground="#FF62A8FF" />
+                                </StackPanel>
+                            </Grid>
+                            <Border Height="112"
+                                    Padding="4"
+                                    Background="Black"
+                                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                <Grid ColumnSpacing="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid>
+                                        <TextBlock Text="255" FontSize="8" VerticalAlignment="Top" Foreground="#FFB0B0B0" />
+                                        <TextBlock Text="0" FontSize="8" VerticalAlignment="Bottom" Foreground="#FFB0B0B0" />
+                                    </Grid>
+                                    <Image x:Name="ImageWaveformImage"
+                                           x:Uid="ImageWaveformImage"
+                                           Grid.Column="1"
+                                           Stretch="Fill"
+                                           AutomationProperties.Name="RGB image waveform" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="InfoDetailsPanel" Grid.Row="1" Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Uid="DimensionsLabel" Text="Dimensions" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PreviewDimensionsText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Uid="SizeLabel" Text="Size" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PreviewSizeText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Uid="TypeLabel" Text="Type" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PreviewTypeText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Uid="ModifiedLabel" Text="Modified" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PreviewModifiedText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Uid="PathLabel" Text="Path" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PreviewPathText" FontSize="12" TextWrapping="WrapWholeWords" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid x:Name="ExifDetailsPanel"
+                          Grid.Row="1"
+                          Visibility="Collapsed">
+                        <StackPanel x:Name="ExifEmptyPanel"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Stretch"
+                                    Spacing="8">
+                            <FontIcon Glyph="&#xE9CE;"
+                                      FontSize="28"
+                                      HorizontalAlignment="Center"
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="ExifUnavailableText"
+                                       x:Uid="ExifUnavailableText"
+                                       TextAlignment="Center"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ScrollViewer x:Name="ExifScrollViewer"
+                                      x:Uid="ExifScrollViewer"
+                                      Visibility="Collapsed"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      AutomationProperties.Name="EXIF metadata">
+                            <StackPanel Spacing="12">
+                                <StackPanel x:Name="ExifDetailsList" Spacing="12" />
+                                <Button x:Name="ExifGoogleMapsButton"
+                                        x:Uid="ExifGoogleMapsButton"
+                                        Visibility="Collapsed"
+                                        Height="34"
+                                        HorizontalAlignment="Stretch"
+                                        CornerRadius="6"
+                                        Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                        BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                        BorderThickness="1"
+                                        Padding="10,0"
+                                        Click="OnOpenExifLocationInMapsClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                        <FontIcon Glyph="&#xE707;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Uid="ExifGoogleMapsText" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                    <StackPanel x:Name="MoreActionsPanel"
+                                Grid.Row="1"
+                                Visibility="Collapsed"
+                                Spacing="8">
+                        <Button x:Uid="CopyPreviewFileButton"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="OnCopyPreviewFileClick"
+                                CornerRadius="6"
+                                Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                AutomationProperties.Name="Copy previewed file">
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                                <TextBlock x:Uid="CopyPreviewFileText" Text="Copy file" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Uid="OpenPreviewFileButton"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="OnOpenPreviewFileClick"
+                                CornerRadius="6"
+                                Background="Transparent"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                AutomationProperties.Name="Open previewed file">
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE8E5;" FontSize="14" />
+                                <TextBlock x:Uid="OpenPreviewFileText" Text="Open file" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Uid="RevealPreviewFileButton"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="OnOpenFileLocationClick"
+                                CornerRadius="6"
+                                Background="Transparent"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                AutomationProperties.Name="Reveal previewed file in File Explorer">
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE838;" FontSize="14" />
+                                <TextBlock x:Uid="RevealPreviewFileText" Text="Reveal in Explorer" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Uid="DeletePreviewFileButton"
+                                Height="36"
+                                HorizontalAlignment="Stretch"
+                                Click="OnDeletePreviewFileClick"
+                                CornerRadius="6"
+                                Background="Transparent"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                AutomationProperties.Name="Move previewed file to Recycle Bin">
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                <TextBlock x:Uid="DeletePreviewFileText" Text="Delete file" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <Button x:Name="InfoOpenFileLocationButton"
+                            x:Uid="OpenFileLocationButton"
+                            Grid.Row="2"
+                            Height="36"
+                            HorizontalAlignment="Stretch"
+                            Click="OnOpenFileLocationClick"
+                            CornerRadius="6"
+                            Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            AutomationProperties.Name="Open file location">
+                        <TextBlock x:Uid="OpenFileLocationText"
+                                   Text="Open file location"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Button>
+                </Grid>
+            </Border>
+            <Border x:Name="ImagePreviewToolbar"
+                    x:Uid="ImagePreviewToolbar"
+                    Visibility="Collapsed"
+                    Height="58"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,260,14"
+                    Padding="12,0"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Image preview toolbar">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="ZoomOutButton"
+                                Click="OnImageZoomOutClick"
+                                Style="{StaticResource PreviewIconButtonStyle}"
+                                AutomationProperties.Name="Zoom out">
+                            <FontIcon Glyph="&#xE71F;" FontSize="15" />
+                        </Button>
+                        <TextBlock x:Name="ImageZoomText"
+                                   x:Uid="ImageZoomText"
+                                   Text="Fit"
+                                   MinWidth="48"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Center"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.Name="Current zoom level" />
+                        <Button x:Uid="ZoomInButton"
+                                Click="OnImageZoomInClick"
+                                Style="{StaticResource PreviewIconButtonStyle}"
+                                AutomationProperties.Name="Zoom in">
+                            <FontIcon Glyph="&#xE8A3;" FontSize="15" />
+                        </Button>
+                        <Button x:Uid="FitToWindowButton"
+                                Click="OnImageZoomFitClick"
+                                Style="{StaticResource PreviewIconButtonStyle}"
+                                AutomationProperties.Name="Fit to window">
+                            <FontIcon Glyph="&#xE740;" FontSize="15" />
+                        </Button>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                        <Button x:Uid="ZoomPreset50Button" Tag="0.5" Click="OnImageZoomPresetClick" Style="{StaticResource PreviewZoomPresetButtonStyle}" AutomationProperties.Name="Set zoom to 50 percent">
+                            <TextBlock x:Uid="ZoomPreset50Text" Text="50%" FontSize="12" />
+                        </Button>
+                        <Button x:Uid="ZoomPreset100Button" Width="52" Tag="1" Click="OnImageZoomPresetClick" Style="{StaticResource PreviewZoomPresetButtonStyle}" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1" AutomationProperties.Name="Set zoom to 100 percent">
+                            <TextBlock x:Uid="ZoomPreset100Text" Text="100%" FontSize="12" />
+                        </Button>
+                        <Button x:Uid="ZoomPreset200Button" Tag="2" Click="OnImageZoomPresetClick" Style="{StaticResource PreviewZoomPresetButtonStyle}" AutomationProperties.Name="Set zoom to 200 percent">
+                            <TextBlock x:Uid="ZoomPreset200Text" Text="200%" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ToggleButton x:Name="CompactInfoRailToggle"
+                                      Visibility="Collapsed"
+                                      Click="OnCompactInfoRailToggleClick"
+                                      Style="{StaticResource PreviewIconToggleButtonStyle}">
+                            <FontIcon Glyph="&#xE946;" FontSize="15" />
+                        </ToggleButton>
+                        <Button x:Name="ImageAnimationPlaybackButton"
+                                Visibility="Collapsed"
+                                Click="OnImageAnimationPlaybackClick"
+                                Style="{StaticResource PreviewIconButtonStyle}">
+                            <FontIcon x:Name="ImageAnimationPlaybackIcon" Glyph="&#xE769;" FontSize="15" />
+                        </Button>
+                        <Button x:Uid="ActualSizeButton"
+                                Click="OnImageActualSizeClick"
+                                Style="{StaticResource PreviewIconButtonStyle}"
+                                AutomationProperties.Name="Show image at actual size">
+                            <FontIcon Glyph="&#xE8A9;" FontSize="15" />
+                        </Button>
+                        <Button x:Uid="ResetViewButton"
+                                Click="OnImageZoomFitClick"
+                                Style="{StaticResource PreviewIconButtonStyle}"
+                                AutomationProperties.Name="Reset view">
+                            <FontIcon Glyph="&#xE72C;" FontSize="15" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border x:Name="ImageFilmstrip"
+                    x:Uid="ImageFilmstrip"
+                    Visibility="Collapsed"
+                    Height="76"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,260,78"
+                    Padding="10,0"
+                    Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Adjacent image thumbnails">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Uid="PreviousImageButton"
+                            Click="OnPreviousImageClick"
+                            Style="{StaticResource PreviewIconButtonStyle}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Previous image">
+                        <FontIcon Glyph="&#xE76B;" FontSize="15" />
+                    </Button>
+                    <ListView x:Name="ImageFilmstripList"
+                              x:Uid="ImageFilmstripList"
+                              Grid.Column="1"
+                              Height="64"
+                              Padding="0"
+                              SelectionMode="Single"
+                              IsItemClickEnabled="True"
+                              IsSwipeEnabled="False"
+                              ScrollViewer.HorizontalScrollMode="Enabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                              ScrollViewer.VerticalScrollMode="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              ItemClick="OnImageFilmstripItemClick"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center"
+                              AutomationProperties.Name="Adjacent images">
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                 <Border Width="70"
+                                         Height="54"
+                                        Margin="4"
+                                        CornerRadius="6"
+                                        Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                                         BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                         BorderThickness="1"
+                                         AutomationProperties.Name="{Binding Name}"
+                                         ToolTipService.ToolTip="{Binding Name}">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xEB9F;"
+                                                  FontSize="24"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                  Visibility="{Binding PlaceholderVisibility, Mode=OneWay}" />
+                                        <Image Source="{Binding Thumbnail, Mode=OneWay}"
+                                               Margin="3"
+                                               Stretch="Uniform" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Button x:Uid="NextImageButton"
+                            Grid.Column="2"
+                            Click="OnNextImageClick"
+                            Style="{StaticResource PreviewIconButtonStyle}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Next image">
+                        <FontIcon Glyph="&#xE76C;" FontSize="15" />
+                    </Button>
+                </Grid>
+            </Border>
+            <Border x:Name="ListingPanel"
+                    x:Uid="ListingPanel"
+                    Visibility="Collapsed"
+                    Margin="14,0,14,14"
+                    Padding="18"
+                    Background="{ThemeResource ExplorerListingSurfaceBrush}"
+                    BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    AutomationProperties.Name="Folder or archive preview">
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="ListingHeroFrame"
+                                Visibility="Collapsed"
+                                Width="48"
+                                Height="48"
+                                CornerRadius="8"
+                                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                                BorderThickness="1"
+                                Background="{ThemeResource PreviewHeroSurfaceBrush}">
+                            <Grid>
+                                <ContentControl x:Name="ListingFolderHeroIcon"
+                                                Width="30"
+                                                Height="30"
+                                                Template="{StaticResource ListingFolderColorIconTemplate}"
+                                                Visibility="Collapsed"
+                                                IsHitTestVisible="False"
+                                                AutomationProperties.AccessibilityView="Raw" />
+                                <ContentControl x:Name="ListingArchiveHeroIcon"
+                                                Width="30"
+                                                Height="30"
+                                                Template="{StaticResource ListingArchiveColorIconTemplate}"
+                                                Visibility="Collapsed"
+                                                IsHitTestVisible="False"
+                                                AutomationProperties.AccessibilityView="Raw" />
+                                <Image x:Name="ListingHeroImage"
+                                       Stretch="Uniform"
+                                       Margin="5"
+                                       Visibility="Collapsed"
+                                       IsHitTestVisible="False"
+                                       AutomationProperties.AccessibilityView="Raw" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                            <TextBlock x:Name="ListingTitle"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                             <TextBlock x:Name="ListingSummary"
+                                       FontSize="12"
+                                       TextTrimming="CharacterEllipsis"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        AutomationProperties.LiveSetting="Polite" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBox x:Name="ListingFilterBox"
+                             Grid.Row="1"
+                             MinHeight="40"
+                             HorizontalAlignment="Stretch"
+                             AutomationProperties.LiveSetting="Polite" />
+
+                    <StackPanel x:Name="ListingBreadcrumbPanel"
+                                Grid.Row="2"
+                                Orientation="Horizontal"
+                                Spacing="4"
+                                x:Uid="ListingBreadcrumbPanel"
+                                AutomationProperties.Name="Listing path breadcrumbs" />
+
+                    <ScrollViewer Grid.Row="3"
+                                  Grid.RowSpan="2"
+                                  HorizontalScrollMode="Enabled"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollMode="Disabled"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  ZoomMode="Disabled">
+                        <Grid MinWidth="692">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Padding="8,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28" />
+                                    <ColumnDefinition Width="*" MinWidth="220" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="ListingNameHeader" x:Uid="ListingNameHeader" Grid.Column="1" Tag="name" Click="OnListingSortClick" HorizontalAlignment="Left" Style="{StaticResource ListingHeaderButtonStyle}" AutomationProperties.Name="Sort by name" />
+                                <Button x:Name="ListingModifiedHeader" x:Uid="ListingModifiedHeader" Grid.Column="2" Tag="modified" Click="OnListingSortClick" HorizontalAlignment="Left" Style="{StaticResource ListingHeaderButtonStyle}" AutomationProperties.Name="Sort by modified date" />
+                                <Button x:Name="ListingTypeHeader" x:Uid="ListingTypeHeader" Grid.Column="3" Tag="type" Click="OnListingSortClick" HorizontalAlignment="Left" Style="{StaticResource ListingHeaderButtonStyle}" AutomationProperties.Name="Sort by type" />
+                                <Button x:Name="ListingSizeHeader" x:Uid="ListingSizeHeader" Grid.Column="4" Tag="size" Click="OnListingSortClick" HorizontalAlignment="Right" HorizontalContentAlignment="Right" Style="{StaticResource ListingHeaderButtonStyle}" AutomationProperties.Name="Sort by size" />
+                            </Grid>
+
+                    <ListView x:Name="ListingListView"
+                              x:Uid="ListingListView"
+                              Grid.Row="1"
+                              IsItemClickEnabled="True"
+                              ItemClick="OnListingItemClick"
+                              DoubleTapped="OnListingListViewDoubleTapped"
+                              KeyDown="OnListingListViewKeyDown"
+                              SelectionMode="Single"
+                              ScrollViewer.HorizontalScrollMode="Disabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollMode="Enabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              AutomationProperties.Name="Preview listing">
+                        <ListView.Resources>
+                            <ResourceDictionary>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Light">
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#0A000000" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#12000000" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#CCE8FF" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#BBDDFF" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#A7D3F6" />
+                                        <SolidColorBrush x:Key="ListViewItemFocusBorderBrush" Color="#8A000000" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="Dark">
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#12FFFFFF" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#1FFFFFFF" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#244E78" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#2B5D8F" />
+                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#346CA3" />
+                                        <SolidColorBrush x:Key="ListViewItemFocusBorderBrush" Color="#99FFFFFF" />
+                                    </ResourceDictionary>
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
+                        </ListView.Resources>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,1,0,1" />
+                                <Setter Property="MinHeight" Value="40" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid MinHeight="40" Padding="8,0" AutomationProperties.Name="{Binding AccessibleName}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="*" MinWidth="220" />
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Grid.Column="0"
+                                          Width="22"
+                                          Height="22"
+                                          VerticalAlignment="Center">
+                                        <ContentControl Width="18"
+                                                        Height="18"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        Template="{StaticResource ListingFolderColorIconTemplate}"
+                                                        Visibility="{Binding FolderGlyphVisibility}"
+                                                        IsHitTestVisible="False"
+                                                        AutomationProperties.AccessibilityView="Raw" />
+                                        <ContentControl Width="18"
+                                                        Height="18"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        Template="{StaticResource ListingArchiveColorIconTemplate}"
+                                                        Visibility="{Binding ArchiveGlyphVisibility}"
+                                                        IsHitTestVisible="False"
+                                                        AutomationProperties.AccessibilityView="Raw" />
+                                        <FontIcon Glyph="{Binding Glyph}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  FontSize="15"
+                                                  Foreground="{ThemeResource ListingNeutralIconBrush}"
+                                                  Visibility="{Binding NeutralGlyphVisibility}"
+                                                  IsHitTestVisible="False"
+                                                  AutomationProperties.AccessibilityView="Raw" />
+                                        <Image Width="18"
+                                               Height="18"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Source="{Binding IconSource, Mode=OneWay}"
+                                               Visibility="{Binding RasterIconVisibility}"
+                                               IsHitTestVisible="False"
+                                               AutomationProperties.AccessibilityView="Raw" />
+                                    </Grid>
+                                    <Grid Grid.Column="1" ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Glyph="&#xE72E;" FontSize="12"
+                                                  Visibility="{Binding EncryptedVisibility}"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                    </Grid>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding ModifiedDisplay}"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding TypeDisplay}"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding SizeDisplay}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            <Border x:Name="StatusBar"
+                    Visibility="Collapsed"
+                    VerticalAlignment="Top" HorizontalAlignment="Center"
+                    Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+                    CornerRadius="0,0,8,8" Padding="12,3">
+                <TextBlock x:Name="StatusText" Text=""
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           FontSize="12"
+                           AutomationProperties.LiveSetting="Polite" />
+            </Border>
+        </Grid>
+
+        <ProgressRing x:Name="LoadingRing"
+                      x:Uid="LoadingRing"
+                      Grid.Row="1"
+                      Visibility="Collapsed"
+                      IsActive="False"
+                      Width="32"
+                      Height="32"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="Loading preview"
+                       AutomationProperties.LiveSetting="Polite" />
+
+        <Border x:Name="CloudProgressPanel"
+                Grid.Row="1"
+                Visibility="Collapsed"
+                MaxWidth="520"
+                Margin="28"
+                Padding="20,16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{ThemeResource PreviewFloatingSurfaceBrush}"
+                BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="CloudProgressText"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                           AutomationProperties.LiveSetting="Polite" />
+                <ProgressBar x:Name="CloudProgressBar"
+                             Height="4"
+                             Minimum="0"
+                             Maximum="100"
+                             IsIndeterminate="False" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel x:Name="ErrorPanel"
+                    x:Uid="ErrorPanel"
+                    Grid.Row="1"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="8"
+                    AutomationProperties.Name="Preview error">
+            <FontIcon Glyph="&#xE783;"
+                      FontSize="36"
+                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock x:Name="ErrorText"
+                       x:Uid="ErrorText"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="420"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        FontSize="13"
+                        AutomationProperties.Name="Preview error message"
+                        AutomationProperties.LiveSetting="Assertive" />
+            <StackPanel x:Name="ErrorActionsPanel"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Spacing="8">
+                    <Button x:Name="ErrorRetryButton"
+                            x:Uid="ErrorRetryButton"
+                            Height="40"
+                            Padding="14,0"
+                            CornerRadius="6"
+                            Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            Click="OnRetryPreviewClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                            <TextBlock x:Uid="ErrorRetryText" Text="Try again" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ErrorOpenFileButton"
+                            x:Uid="ErrorOpenFileButton"
+                            Height="40"
+                            Padding="14,0"
+                            CornerRadius="6"
+                            Background="{ThemeResource PreviewHeroSurfaceBrush}"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            Click="OnOpenErrorPreviewFileClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8E5;" FontSize="14" />
+                            <TextBlock x:Uid="ErrorOpenFileText" Text="Open file" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ErrorRevealFileButton"
+                            x:Uid="ErrorRevealFileButton"
+                            Height="40"
+                            Padding="14,0"
+                            CornerRadius="6"
+                            Background="Transparent"
+                            BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                            BorderThickness="1"
+                            Click="OnRevealErrorPreviewFileClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE838;" FontSize="14" />
+                            <TextBlock x:Uid="ErrorRevealFileText" Text="Reveal in Explorer" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <Button x:Name="ErrorCopyDiagnosticsButton"
+                        Height="40"
+                        Padding="14,0"
+                        HorizontalAlignment="Center"
+                        CornerRadius="6"
+                        Background="Transparent"
+                        BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                        BorderThickness="1"
+                        Click="OnCopyErrorDiagnosticsClick">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                        <TextBlock x:Name="ErrorCopyDiagnosticsText"
+                                   FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

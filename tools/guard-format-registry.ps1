@@ -1,0 +1,79 @@
+param([string]$Root = (Split-Path $PSScriptRoot -Parent))
+
+$ErrorActionPreference = "Stop"
+$failures = [System.Collections.Generic.List[string]]::new()
+$registry = Get-Content -LiteralPath (Join-Path $Root "docs/format-registry.json") -Raw | ConvertFrom-Json
+
+function Require-Pattern([string]$path, [string]$pattern, [string]$message) {
+    $text = Get-Content -LiteralPath $path -Raw
+    if ($text -notmatch $pattern) { $script:failures.Add($message) }
+}
+
+$abi = [int]$registry.nativeAbiVersion
+$nativeAbi = Join-Path $Root "native/quicklook_next_native/src/abi_generated.rs"
+Require-Pattern $nativeAbi "QL_NATIVE_ABI_VERSION:\s*u32\s*=\s*$abi" `
+    "Rust native ABI does not match format-registry.json."
+Require-Pattern (Join-Path $Root "src/QuickLook.Next.Core/NativeAbi.Generated.cs") "Version\s*=\s*$abi" `
+    "Managed native ABI does not match format-registry.json."
+
+$nativeFileProbe = Join-Path $Root "native/quicklook_next_native/src/preview/file_probe.rs"
+$nativeProbeText = Get-Content -LiteralPath $nativeFileProbe -Raw
+foreach ($kind in $registry.probeKinds) {
+    if ($nativeProbeText -notmatch [regex]::Escape('"' + $kind + '"')) {
+        $failures.Add("Native probe kind missing: $kind")
+    }
+}
+
+$policy = Get-Content -LiteralPath (Join-Path $Root "src/QuickLook.Next.Core/PreviewFormatPolicy.cs") -Raw
+foreach ($kind in $registry.parserHostKinds) {
+    if ($policy -notmatch [regex]::Escape('"' + $kind + '"')) {
+        $failures.Add("ParserHost kind missing from managed policy: $kind")
+    }
+}
+
+$fallbackPath = Join-Path $Root "src/QuickLook.Next.Core/FallbackFileProbe.cs"
+$fallback = Get-Content -LiteralPath $fallbackPath -Raw
+foreach ($kind in @("disk-image", "font", "database", "mail", "chm", "dump", "elf")) {
+    if ($fallback -notmatch [regex]::Escape('"' + $kind + '"')) {
+        $failures.Add("Metadata-only fallback kind missing: $kind")
+    }
+}
+
+$nativeArchive = Join-Path $Root "native/quicklook_next_native/src/preview/archive/mod.rs"
+$unsupportedArchives = @($registry.unsupportedArchives)
+foreach ($extension in @($registry.listingOnlyArchives)) {
+    if ($extension -in $unsupportedArchives) {
+        $failures.Add("Archive cannot be both listing-only and unsupported: $extension")
+    }
+    Require-Pattern $fallbackPath ([regex]::Escape('"' + $extension + '"')) `
+        "Managed fallback probe omits listing-only archive $extension."
+    Require-Pattern $nativeArchive ([regex]::Escape('"' + $extension + '"')) `
+        "Native archive routing omits listing-only archive $extension."
+}
+Require-Pattern (Join-Path $Root "native/quicklook_next_native/src/rar_listing.rs") `
+    'RAR4_SIGNATURE[\s\S]*RAR5_SIGNATURE[\s\S]*pub fn scan_rar<R:\s*Read\s*\+\s*Seek>' `
+    "RAR listing support must retain signature validation and the header-only Read+Seek scanner."
+
+$rasterProgram = Join-Path $Root "src/QuickLook.Next.RasterHost/Program.cs"
+$nativeDecoder = Join-Path $Root "src/QuickLook.Next.RasterHost/NativeImageDecoder.cs"
+foreach ($extension in $registry.imageAliases.jpeg) {
+    Require-Pattern $rasterProgram ([regex]::Escape('"' + $extension + '"')) "RasterHost system preference omits JPEG alias $extension."
+    Require-Pattern $nativeDecoder ([regex]::Escape('"' + $extension + '"')) "Native decoder policy omits JPEG alias $extension."
+}
+
+$codecPolicy = Get-Content -LiteralPath (Join-Path $Root "src/QuickLook.Next.Core/ImageCodecPolicy.cs") -Raw
+foreach ($extension in $registry.systemRequiredImages) {
+    if ($codecPolicy -notmatch [regex]::Escape('"' + $extension + '"')) {
+        $failures.Add("System-required image missing from Core policy: $extension")
+    }
+}
+
+Require-Pattern (Join-Path $Root "native/quicklook_next_native/src/preview.rs") '"docx"\s*\|\s*"docm"\s*=>\s*render_docx' `
+    "DOCM must share the bounded DOCX parser."
+
+if ($failures.Count -gt 0) {
+    Write-Host "Format registry guard failed:" -ForegroundColor Red
+    foreach ($failure in $failures) { Write-Host " - $failure" -ForegroundColor Red }
+    exit 1
+}
+Write-Host "format registry guard passed" -ForegroundColor Green

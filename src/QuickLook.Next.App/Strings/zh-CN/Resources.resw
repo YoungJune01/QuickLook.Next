@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppName" xml:space="preserve"><value>QuickLook Next</value></data>
+  <data name="AppDescription" xml:space="preserve"><value>在文件资源管理器中按空格键预览文件。</value></data>
+  <data name="Ready" xml:space="preserve"><value>就绪</value></data>
+  <data name="ReadyKind" xml:space="preserve"><value>就绪</value></data>
+  <data name="PreviewReadyAnnouncement" xml:space="preserve"><value>预览已就绪</value></data>
+  <data name="EmptyValue" xml:space="preserve"><value>-</value></data>
+  <data name="FitZoom" xml:space="preserve"><value>适应窗口</value></data>
+  <data name="PlayAnimation" xml:space="preserve"><value>播放动画</value></data>
+  <data name="PauseAnimation" xml:space="preserve"><value>暂停动画</value></data>
+  <data name="ShowPreviewDetails" xml:space="preserve"><value>显示预览详情</value></data>
+  <data name="HidePreviewDetails" xml:space="preserve"><value>隐藏预览详情</value></data>
+  <data name="PreviewUnavailableTitle" xml:space="preserve"><value>无法预览</value></data>
+  <data name="PreviewUnavailableMessage" xml:space="preserve"><value>无法预览此文件。</value></data>
+  <data name="PreviewTimedOut" xml:space="preserve"><value>预览超时</value></data>
+  <data name="PdfPageFailed" xml:space="preserve"><value>PDF 页面加载失败</value></data>
+  <data name="SurfaceFailed" xml:space="preserve"><value>预览画面加载失败</value></data>
+  <data name="PreviewTimedOutTitle" xml:space="preserve"><value>预览超时</value></data>
+  <data name="PreviewTimedOutMessage" xml:space="preserve"><value>预览耗时过长，请重试。</value></data>
+  <data name="PreviewServiceUnavailableTitle" xml:space="preserve"><value>预览服务不可用</value></data>
+  <data name="PreviewServiceUnavailableMessage" xml:space="preserve"><value>预览服务已断开或重启，请重试。</value></data>
+  <data name="PreviewDisplayFailedTitle" xml:space="preserve"><value>无法显示预览</value></data>
+  <data name="PreviewDisplayFailedMessage" xml:space="preserve"><value>此设备无法显示该预览。</value></data>
+  <data name="PreviewContentFailedTitle" xml:space="preserve"><value>无法预览</value></data>
+  <data name="PreviewContentFailedMessage" xml:space="preserve"><value>无法预览此文件。</value></data>
+  <data name="ImageCodecRequiredTitle" xml:space="preserve"><value>需要其他图像编解码器</value></data>
+  <data name="ImageCodecRequiredMessageFormat" xml:space="preserve"><value>Windows 需要 {0} 图像编解码器才能预览此文件。请安装适用于当前 Windows 版本的编解码器，或将图像转换为 PNG、JPEG 或 WebP。</value></data>
+  <data name="ImageDecodeFailedTitle" xml:space="preserve"><value>无法解码图像</value></data>
+  <data name="ImageDecodeFailedMessage" xml:space="preserve"><value>此图像可能已损坏、使用不支持的变体或超出预览限制。请尝试用其他应用打开，或转换为 PNG、JPEG 或 WebP。</value></data>
+  <data name="RetryPreview" xml:space="preserve"><value>重试</value></data>
+  <data name="PathCopied" xml:space="preserve"><value>路径已复制</value></data>
+  <data name="FileCopied" xml:space="preserve"><value>文件已复制</value></data>
+  <data name="NoExifData" xml:space="preserve"><value>没有 EXIF 数据</value></data>
+  <data name="TrayShowPreview" xml:space="preserve"><value>显示预览</value></data>
+  <data name="TraySettings" xml:space="preserve"><value>设置</value></data>
+  <data name="TrayAutoStart" xml:space="preserve"><value>开机自启</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>退出 QuickLook Next</value></data>
+  <data name="AutoStartEnableFailed" xml:space="preserve"><value>无法启用开机自启</value></data>
+  <data name="AutoStartDisableFailed" xml:space="preserve"><value>无法关闭开机自启</value></data>
+  <data name="SettingsTitle" xml:space="preserve"><value>设置</value></data>
+  <data name="SettingsGeneral" xml:space="preserve"><value>常规</value></data>
+  <data name="SettingsGeneralDescription" xml:space="preserve"><value>选择 QuickLook Next 在 Windows 中的运行方式。</value></data>
+  <data name="SettingsAutoStart" xml:space="preserve"><value>开机自启</value></data>
+  <data name="SettingsAutoStartDescription" xml:space="preserve"><value>登录 Windows 后在通知区域保持 QuickLook Next 就绪。</value></data>
+  <data name="SettingsWindowLevel" xml:space="preserve"><value>预览窗口层级</value></data>
+  <data name="SettingsWindowLevelDescription" xml:space="preserve"><value>标准模式只在需要时将窗口置于资源管理器上方；始终置顶会让预览在关闭前保持在其他应用上方。</value></data>
+  <data name="SettingsWindowLevelStandard" xml:space="preserve"><value>标准</value></data>
+  <data name="SettingsWindowLevelAlwaysOnTop" xml:space="preserve"><value>始终置顶</value></data>
+  <data name="SettingsCloseOnFocusLoss" xml:space="preserve"><value>焦点移开时关闭预览</value></data>
+  <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve"><value>其他应用获得焦点后隐藏预览；QuickLook Next 的设置和对话框不会触发关闭。</value></data>
+  <data name="SettingsLanguage" xml:space="preserve"><value>语言</value></data>
+  <data name="SettingsLanguageDescription" xml:space="preserve"><value>选择应用和托盘菜单使用的语言。</value></data>
+  <data name="SettingsSystemLanguage" xml:space="preserve"><value>跟随系统语言</value></data>
+  <data name="SettingsAnimation" xml:space="preserve"><value>动画预览</value></data>
+  <data name="SettingsAnimationDescription" xml:space="preserve"><value>选择动画图像跟随 Windows、始终播放或显示静态帧。</value></data>
+  <data name="SettingsAnimationSystem" xml:space="preserve"><value>跟随 Windows 设置</value></data>
+  <data name="SettingsAnimationAlways" xml:space="preserve"><value>始终播放</value></data>
+  <data name="SettingsAnimationStill" xml:space="preserve"><value>显示静态帧</value></data>
+  <data name="SettingsTextWrapping" xml:space="preserve"><value>文本和代码预览中的长行</value></data>
+  <data name="SettingsTextWrappingDescription" xml:space="preserve"><value>选择长行跟随文件类型、自动换行或水平滚动。Markdown 布局不受影响。</value></data>
+  <data name="SettingsTextWrappingAutomatic" xml:space="preserve"><value>自动</value></data>
+  <data name="SettingsTextWrappingAlways" xml:space="preserve"><value>自动换行</value></data>
+  <data name="SettingsTextWrappingNever" xml:space="preserve"><value>不换行</value></data>
+  <data name="SettingsTextSize" xml:space="preserve"><value>文本和代码字号</value></data>
+  <data name="SettingsTextSizeDescription" xml:space="preserve"><value>调整纯文本和代码预览的阅读字号。Markdown 布局不受影响。</value></data>
+  <data name="SettingsTextSizeSmall" xml:space="preserve"><value>小</value></data>
+  <data name="SettingsTextSizeDefault" xml:space="preserve"><value>默认</value></data>
+  <data name="SettingsTextSizeLarge" xml:space="preserve"><value>大</value></data>
+  <data name="SettingsTextLineNumbers" xml:space="preserve"><value>显示行号</value></data>
+  <data name="SettingsTextLineNumbersDescription" xml:space="preserve"><value>在纯文本和代码预览中显示行号。</value></data>
+  <data name="DatabasePreviewUnavailable" xml:space="preserve"><value>无法安全读取数据库摘要。不会将文件图标或缩略图作为数据库内容显示。</value></data>
+  <data name="SettingsRestartTitle" xml:space="preserve"><value>需要重启</value></data>
+  <data name="SettingsRestartMessage" xml:space="preserve"><value>请从托盘退出 QuickLook Next 并重新启动，以应用新的语言。</value></data>
+  <data name="SettingsAbout" xml:space="preserve"><value>关于</value></data>
+  <data name="SettingsAboutDescription" xml:space="preserve"><value>查看版本、项目来源和发布信息。</value></data>
+  <data name="SettingsVersionFormat" xml:space="preserve"><value>版本 {0}</value></data>
+  <data name="SettingsProjectSource" xml:space="preserve"><value>QuickLook Next 是在 GitHub 上开发的开源项目。本项目发布的构建来源于下方代码仓库。</value></data>
+  <data name="SettingsOpenGitHub" xml:space="preserve"><value>打开 GitHub 项目</value></data>
+  <data name="SettingsViewReleases" xml:space="preserve"><value>查看发布版本</value></data>
+  <data name="SettingsCheckForUpdates" xml:space="preserve"><value>检查更新</value></data>
+  <data name="SettingsCheckingForUpdates" xml:space="preserve"><value>正在检查更新...</value></data>
+  <data name="UpdateAvailableTitle" xml:space="preserve"><value>有可用更新</value></data>
+  <data name="UpdateAvailableMessageFormat" xml:space="preserve"><value>QuickLook Next {0} 已发布。当前版本为 {1}。请使用“查看发布版本”下载。</value></data>
+  <data name="UpdateUpToDateTitle" xml:space="preserve"><value>已是最新版本</value></data>
+  <data name="UpdateUpToDateMessage" xml:space="preserve"><value>当前正在使用最新稳定版本。</value></data>
+  <data name="UpdateNewerBuildTitle" xml:space="preserve"><value>开发版本或较新版本</value></data>
+  <data name="UpdateNewerBuildMessage" xml:space="preserve"><value>当前版本比最新稳定版本更新。</value></data>
+  <data name="UpdateCheckFailedTitle" xml:space="preserve"><value>无法检查更新</value></data>
+  <data name="UpdateCheckFailedMessage" xml:space="preserve"><value>请检查网络连接后重试。</value></data>
+  <data name="SettingsHookStatus" xml:space="preserve"><value>资源管理器快捷键状态</value></data>
+  <data name="SettingsHookReady" xml:space="preserve"><value>已就绪。可以使用资源管理器预览快捷键。</value></data>
+  <data name="SettingsHookDegradedFormat" xml:space="preserve"><value>部分可用。{0} 报告错误 {1}。</value></data>
+  <data name="SettingsHookFailedFormat" xml:space="preserve"><value>不可用。{0} 报告错误 {1}。</value></data>
+  <data name="SettingsHookStopped" xml:space="preserve"><value>已停止。资源管理器预览快捷键不可用。</value></data>
+  <data name="SettingsRetryHook" xml:space="preserve"><value>重试快捷键</value></data>
+  <data name="SettingsLicenseNotice" xml:space="preserve"><value>QuickLook Next 的原创源代码和资产采用 MIT License。第三方组件仍适用其各自的许可证和声明。</value></data>
+  <data name="SettingsDiagnostics" xml:space="preserve"><value>诊断</value></data>
+  <data name="SettingsDiagnosticsDescription" xml:space="preserve"><value>创建不包含文件名、文件内容、路径、设置文件、缓存或日志内容的小型支持摘要。</value></data>
+  <data name="SettingsCreateDiagnostics" xml:space="preserve"><value>创建诊断包</value></data>
+  <data name="DiagnosticsConsentTitle" xml:space="preserve"><value>创建诊断包？</value></data>
+  <data name="DiagnosticsConsentMessage" xml:space="preserve"><value>诊断包包含应用、系统、偏好模式、功能和日志大小元数据，不包含路径、文件名、文件内容、日志内容、设置文件、缓存或计算机/用户标识。不会自动上传任何数据。</value></data>
+  <data name="DiagnosticsZipType" xml:space="preserve"><value>ZIP 压缩包</value></data>
+  <data name="DiagnosticsSavedTitle" xml:space="preserve"><value>诊断包已保存</value></data>
+  <data name="DiagnosticsSavedMessage" xml:space="preserve"><value>未上传任何数据。附加到报告前请先检查诊断包。</value></data>
+  <data name="DiagnosticsFailedTitle" xml:space="preserve"><value>未保存诊断包</value></data>
+  <data name="DiagnosticsFailedMessage" xml:space="preserve"><value>QuickLook Next 无法创建诊断包。</value></data>
+  <data name="SettingsSaveFailed" xml:space="preserve"><value>设置未保存</value></data>
+  <data name="SettingsSaveFailedMessage" xml:space="preserve"><value>QuickLook Next 无法保存此设置。</value></data>
+  <data name="ListingReading" xml:space="preserve"><value>正在读取文件夹...</value></data>
+  <data name="ListingError" xml:space="preserve"><value>无法读取此文件夹</value></data>
+  <data name="StartupFailedMessage" xml:space="preserve"><value>QuickLook Next 无法正常启动。</value></data>
+  <data name="MovedToRecycleBin" xml:space="preserve"><value>已移至回收站</value></data>
+  <data name="DeleteFileTitle" xml:space="preserve"><value>将文件移至回收站？</value></data>
+  <data name="DeleteFileMessage" xml:space="preserve"><value>{0} 将被移至回收站。</value></data>
+  <data name="MoveToRecycleBin" xml:space="preserve"><value>移至回收站</value></data>
+  <data name="Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="TextSearchPlaceholder" xml:space="preserve"><value>查找</value></data>
+  <data name="TextSearchAccessibleName" xml:space="preserve"><value>在文本预览中查找</value></data>
+  <data name="TextSearchPreviousMatch" xml:space="preserve"><value>上一个匹配项</value></data>
+  <data name="TextSearchNextMatch" xml:space="preserve"><value>下一个匹配项</value></data>
+  <data name="TextSearchClose" xml:space="preserve"><value>关闭搜索</value></data>
+  <data name="TextSearchCountFormat" xml:space="preserve"><value>第 {0} 个，共 {1} 个</value></data>
+  <data name="TextPreviewTruncated" xml:space="preserve"><value>[预览已截断]</value></data>
+  <data name="AnimationFramesTruncated" xml:space="preserve"><value>动画帧数已限制以确保预览稳定</value></data>
+  <data name="CopyAction" xml:space="preserve"><value>复制</value></data>
+  <data name="CopiedAction" xml:space="preserve"><value>已复制</value></data>
+  <data name="DialogOk" xml:space="preserve"><value>确定</value></data>
+  <data name="ErrorKind" xml:space="preserve"><value>错误</value></data>
+  <data name="FolderTypeDisplay" xml:space="preserve"><value>文件夹</value></data>
+  <data name="ListingSortName" xml:space="preserve"><value>名称</value></data>
+  <data name="ListingSortModified" xml:space="preserve"><value>修改时间</value></data>
+  <data name="ListingSortType" xml:space="preserve"><value>类型</value></data>
+  <data name="ListingSortSize" xml:space="preserve"><value>大小</value></data>
+  <data name="ListingPartialSuffix" xml:space="preserve"><value> - 内容不完整</value></data>
+  <data name="ListingSummaryFormat" xml:space="preserve"><value>{0:N0} 个文件，{1:N0} 个文件夹 - {2}</value></data>
+  <data name="ListingFilterPlaceholder" xml:space="preserve"><value>筛选当前文件夹</value></data>
+  <data name="ListingFilterAccessibleName" xml:space="preserve"><value>筛选列表项目</value></data>
+  <data name="ListingFilterResultsFormat" xml:space="preserve"><value>显示 {0:N0} / {1:N0} 个项目</value></data>
+  <data name="ListingEncryptedSummaryFormat" xml:space="preserve"><value> - {0:N0} 个已加密</value></data>
+  <data name="ListingEncryptedPartialSummaryFormat" xml:space="preserve"><value> - 至少 {0:N0} 个已加密</value></data>
+  <data name="ListingEncryptedCannotPreview" xml:space="preserve"><value>无法预览加密的归档项目。</value></data>
+  <data name="ListingBrowseOnlySuffix" xml:space="preserve"><value> - 仅浏览列表</value></data>
+  <data name="ListingEntriesCannotBePreviewed" xml:space="preserve"><value>此列表仅供浏览，暂不能在此打开其中的文件。</value></data>
+  <data name="ListingEncryptedRowAccessibleNameFormat" xml:space="preserve"><value>{0}，已加密，{1}</value></data>
+  <data name="ListingOpenBreadcrumbFormat" xml:space="preserve"><value>在列表中打开 {0}</value></data>
+  <data name="PdfPageIndicatorFormat" xml:space="preserve"><value>{0:N0} / {1:N0}</value></data>
+  <data name="PdfPageIndicatorPagedFormat" xml:space="preserve"><value>{0:N0} / {1:N0}（分页）</value></data>
+  <data name="PdfPageIndicatorEmpty" xml:space="preserve"><value>0 / 0</value></data>
+  <data name="CertificateHeroSubtitle" xml:space="preserve"><value>证书</value></data>
+  <data name="PackageHeroSubtitle" xml:space="preserve"><value>应用包图标</value></data>
+  <data name="ExecutableHeroSubtitle" xml:space="preserve"><value>应用程序图标</value></data>
+  <data name="OfficeEmbeddedImagePreview" xml:space="preserve"><value>嵌入图片预览</value></data>
+  <data name="WelcomeTitle" xml:space="preserve"><value>欢迎使用 QuickLook Next</value></data>
+  <data name="WelcomeHeading" xml:space="preserve"><value>无需打断工作流即可预览文件</value></data>
+  <data name="WelcomeIntroduction" xml:space="preserve"><value>QuickLook Next 正在通知区域运行，随时可以预览文件资源管理器中的文件。</value></data>
+  <data name="WelcomeOpenShortcut" xml:space="preserve"><value>1. 在文件资源管理器中选择文件，然后按空格键。</value></data>
+  <data name="WelcomeCloseShortcut" xml:space="preserve"><value>2. 再按一次空格键关闭预览。</value></data>
+  <data name="WelcomeNavigationShortcut" xml:space="preserve"><value>预览保持打开时，可以在文件资源管理器中使用方向键切换文件。</value></data>
+  <data name="WelcomeTrayBehavior" xml:space="preserve"><value>关闭预览后，QuickLook Next 仍会在通知区域运行。</value></data>
+  <data name="WelcomeHelpHint" xml:space="preserve"><value>以后可以从设置中的“帮助和快捷键”重新打开本指南。</value></data>
+  <data name="WelcomeStart" xml:space="preserve"><value>开始预览</value></data>
+  <data name="SettingsHelpShortcuts" xml:space="preserve"><value>帮助和快捷键</value></data>
+  <data name="PdfPageAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 页，共 {1:N0} 页</value></data>
+  <data name="TableScrollViewer.AutomationProperties.Name" xml:space="preserve"><value>分隔符表格预览</value></data>
+  <data name="TableGrid.AutomationProperties.Name" xml:space="preserve"><value>分隔符表格单元格</value></data>
+  <data name="OfficeScrollViewer.AutomationProperties.Name" xml:space="preserve"><value>Office 文档预览</value></data>
+  <data name="TableDimensionsFormat" xml:space="preserve"><value>{0:N0} 行 x {1:N0} 列</value></data>
+  <data name="TableShowingRowsFormat" xml:space="preserve"><value> - 显示 {0:N0} 行</value></data>
+  <data name="TableSummaryFormat" xml:space="preserve"><value>{0} 表格 - {1}</value></data>
+  <data name="TableFallbackColumnFormat" xml:space="preserve"><value>第 {0:N0} 列</value></data>
+  <data name="TableCornerAccessibleName" xml:space="preserve"><value>表格角单元格</value></data>
+  <data name="TableColumnHeaderAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 列标题，{1}</value></data>
+  <data name="TableRowHeaderAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 行</value></data>
+  <data name="TableCellAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 行，{1}：{2}</value></data>
+  <data name="TableBlankCell" xml:space="preserve"><value>空白</value></data>
+  <data name="OfficeSlideAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 张幻灯片，共 {1:N0} 张：{2}</value></data>
+  <data name="OfficeSheetAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 个工作表，共 {1:N0} 个：{2}</value></data>
+  <data name="OfficePageAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 页，共 {1:N0} 页：{2}</value></data>
+  <data name="OfficeColumnHeaderAccessibleNameFormat" xml:space="preserve"><value>第 {0} 列</value></data>
+  <data name="OfficeRowHeaderAccessibleNameFormat" xml:space="preserve"><value>第 {0:N0} 行</value></data>
+  <data name="OfficeCellAccessibleNameFormat" xml:space="preserve"><value>单元格 {0}：{1}</value></data>
+  <data name="OfficeEmbeddedImageAccessibleName" xml:space="preserve"><value>嵌入图像</value></data>
+  <data name="PreviewContentHost.AutomationProperties.Name" xml:space="preserve"><value>预览内容</value></data>
+  <data name="PreviewRoot.AutomationProperties.Name" xml:space="preserve"><value>图像预览区域</value></data>
+  <data name="PreviewRoot.AutomationProperties.HelpText" xml:space="preserve"><value>使用鼠标滚轮缩放，拖动以平移，或按住 Shift 并按方向键平移。</value></data>
+  <data name="AnimatedImagePreviewRoot.AutomationProperties.Name" xml:space="preserve"><value>动态图像预览</value></data>
+  <data name="AnimatedImagePreviewRoot.AutomationProperties.HelpText" xml:space="preserve"><value>使用鼠标滚轮缩放，拖动以平移，或按住 Shift 并按方向键平移。</value></data>
+  <data name="PdfScrollViewer.AutomationProperties.Name" xml:space="preserve"><value>PDF 预览页面</value></data>
+  <data name="PdfPagerBar.AutomationProperties.Name" xml:space="preserve"><value>PDF 页面导航</value></data>
+  <data name="MarkdownOutlinePanel.AutomationProperties.Name" xml:space="preserve"><value>Markdown 标题</value></data>
+  <data name="TextPreviewContainer.AutomationProperties.Name" xml:space="preserve"><value>文本预览</value></data>
+  <data name="MediaPreviewElement.AutomationProperties.Name" xml:space="preserve"><value>媒体预览播放器</value></data>
+  <data name="LoadingRing.AutomationProperties.Name" xml:space="preserve"><value>正在加载预览</value></data>
+  <data name="ErrorPanel.AutomationProperties.Name" xml:space="preserve"><value>预览错误</value></data>
+  <data name="ErrorText.AutomationProperties.Name" xml:space="preserve"><value>预览错误消息</value></data>
+  <data name="ErrorRetryText.Text" xml:space="preserve"><value>重试</value></data>
+  <data name="OpeningFileFormat" xml:space="preserve"><value>正在打开 {0}...</value></data>
+  <data name="DownloadingCloudFileFormat" xml:space="preserve"><value>正在从云存储下载 {0}...</value></data>
+  <data name="DownloadingCloudFileProgressFormat" xml:space="preserve"><value>正在下载 {0}：{1}%（{2}/{3}）</value></data>
+  <data name="DownloadingCloudFileBytesFormat" xml:space="preserve"><value>正在下载 {0}：{1}</value></data>
+  <data name="CloudProgressAccessibleName" xml:space="preserve"><value>云下载进度</value></data>
+  <data name="CloudDownloadConsentTitle" xml:space="preserve"><value>下载云端文件以进行预览？</value></data>
+  <data name="CloudDownloadConsentMessageFormat" xml:space="preserve"><value>{0} 存储在云端，大小为 {1}。是否立即下载以进行预览？预览下载上限为 {2}，更大的文件将推迟处理。</value></data>
+  <data name="DownloadForPreview" xml:space="preserve"><value>下载并预览</value></data>
+  <data name="UnknownFileSize" xml:space="preserve"><value>大小未知</value></data>
+  <data name="CloudDownloadDeclined" xml:space="preserve"><value>未允许下载云端文件，因此已推迟预览。</value></data>
+  <data name="CloudDownloadTooLargeFormat" xml:space="preserve"><value>云端文件下载上限为 {0}，因此已推迟预览。</value></data>
+  <data name="CheckingFileAvailabilityFormat" xml:space="preserve"><value>正在安全检查 {0} 的可用性...</value></data>
+  <data name="CloudUnknownDeferred" xml:space="preserve"><value>无法在不下载内容的情况下识别此云文件类型，因此已推迟预览。</value></data>
+  <data name="CloudAvailabilityUnknownDeferred" xml:space="preserve"><value>无法在不读取内容的情况下验证文件可用性，因此已推迟预览。</value></data>
+  <data name="CloudDownloadDeferred" xml:space="preserve"><value>未能在预览等待时间内下载云端文件。请在文件本地可用后重试。</value></data>
+  <data name="CloudMediaDeferred" xml:space="preserve"><value>云服务提供商在本地提供此文件后才能播放媒体。</value></data>
+  <data name="CloudMediaAvailabilityUnknownDeferred" xml:space="preserve"><value>无法安全验证文件可用性，因此已推迟媒体播放。</value></data>
+  <data name="CloudMetadataPreviewFormat" xml:space="preserve"><value>名称：{0}&#xA;类型：{1}&#xA;大小：{2}&#xA;修改时间：{3}&#xA;状态：{4}</value></data>
+  <data name="PreviewModifiedMetadataFormat" xml:space="preserve"><value>修改时间：{0}</value></data>
+  <data name="PageCountSingularFormat" xml:space="preserve"><value>{0:N0} 页</value></data>
+  <data name="PageCountFormat" xml:space="preserve"><value>{0:N0} 页</value></data>
+  <data name="PdfPageTimedOutStatusFormat" xml:space="preserve"><value>PDF 第 {0:N0} 页渲染超时。请重新打开文件后重试。</value></data>
+  <data name="PdfPageFailedStatusFormat" xml:space="preserve"><value>无法渲染 PDF 第 {0:N0} 页。</value></data>
+  <data name="TextPreviewTruncatedAtCharacterCountFormat" xml:space="preserve"><value>[预览在 {0:N0} 个字符处截断]</value></data>
+  <data name="SyntaxHighlightingCharacterLimitFormat" xml:space="preserve"><value>[超过 {0:N0} 个字符后已禁用语法高亮]</value></data>
+  <data name="SyntaxHighlightingSpanLimitFormat" xml:space="preserve"><value>[超过 {0:N0} 个区段后已禁用语法高亮]</value></data>
+  <data name="OfficeEmbeddedImagePreviewFormat" xml:space="preserve"><value>{0} 嵌入图像预览</value></data>
+  <data name="AppBrandText.Text" xml:space="preserve"><value>QuickLook Next</value></data>
+  <data name="InfoTabText.Text" xml:space="preserve"><value>信息</value></data>
+  <data name="ExifTabText.Text" xml:space="preserve"><value>EXIF</value></data>
+  <data name="MoreTabText.Text" xml:space="preserve"><value>更多</value></data>
+  <data name="ExifUnavailableText.Text" xml:space="preserve"><value>没有 EXIF 数据</value></data>
+  <data name="CopyPreviewFileText.Text" xml:space="preserve"><value>复制文件</value></data>
+  <data name="OpenPreviewFileText.Text" xml:space="preserve"><value>打开文件</value></data>
+  <data name="DeletePreviewFileText.Text" xml:space="preserve"><value>删除文件</value></data>
+  <data name="ErrorOpenFileText.Text" xml:space="preserve"><value>打开文件</value></data>
+  <data name="ErrorOpenFileButton.AutomationProperties.Name" xml:space="preserve"><value>打开正在预览的文件</value></data>
+  <data name="ErrorRetryButton.AutomationProperties.Name" xml:space="preserve"><value>重新尝试预览</value></data>
+  <data name="ErrorRevealFileText.Text" xml:space="preserve"><value>在文件资源管理器中显示</value></data>
+  <data name="ErrorRevealFileButton.AutomationProperties.Name" xml:space="preserve"><value>在文件资源管理器中显示正在预览的文件</value></data>
+  <data name="RevealPreviewFileText.Text" xml:space="preserve"><value>在文件资源管理器中显示</value></data>
+  <data name="DimensionsLabel.Text" xml:space="preserve"><value>尺寸</value></data>
+  <data name="ImageWaveformLabel.Text" xml:space="preserve"><value>RGB 波形图</value></data>
+  <data name="ImageWaveformImage.AutomationProperties.Name" xml:space="preserve"><value>RGB 图像波形图</value></data>
+  <data name="ImageWaveformPanel.AutomationProperties.HelpText" xml:space="preserve"><value>横向位置对应图像位置，纵向位置显示从 0 到 255 的通道强度。</value></data>
+  <data name="SizeLabel.Text" xml:space="preserve"><value>大小</value></data>
+  <data name="TypeLabel.Text" xml:space="preserve"><value>类型</value></data>
+  <data name="ModifiedLabel.Text" xml:space="preserve"><value>修改时间</value></data>
+  <data name="PathLabel.Text" xml:space="preserve"><value>路径</value></data>
+  <data name="OpenFileLocationText.Text" xml:space="preserve"><value>打开文件位置</value></data>
+  <data name="ImageZoomText.Text" xml:space="preserve"><value>适应窗口</value></data>
+  <data name="ZoomPreset50Text.Text" xml:space="preserve"><value>50%</value></data>
+  <data name="ZoomPreset100Text.Text" xml:space="preserve"><value>100%</value></data>
+  <data name="ZoomPreset200Text.Text" xml:space="preserve"><value>200%</value></data>
+  <data name="AppTitleBar.AutomationProperties.Name" xml:space="preserve"><value>预览标题栏</value></data>
+  <data name="AnimatedImagePreviewImage.AutomationProperties.Name" xml:space="preserve"><value>动态图像内容</value></data>
+  <data name="PdfPageIndicatorText.AutomationProperties.Name" xml:space="preserve"><value>当前 PDF 页面</value></data>
+  <data name="MarkdownOutlineList.AutomationProperties.Name" xml:space="preserve"><value>Markdown 标题导航</value></data>
+  <data name="MarkdownListView.AutomationProperties.Name" xml:space="preserve"><value>Markdown 文档内容</value></data>
+  <data name="TextPreviewBlock.AutomationProperties.Name" xml:space="preserve"><value>文本预览内容</value></data>
+  <data name="PreviewInfoRail.AutomationProperties.Name" xml:space="preserve"><value>预览详细信息</value></data>
+  <data name="ExifScrollViewer.AutomationProperties.Name" xml:space="preserve"><value>EXIF 元数据</value></data>
+  <data name="ImagePreviewToolbar.AutomationProperties.Name" xml:space="preserve"><value>图像预览工具栏</value></data>
+  <data name="ImageFilmstrip.AutomationProperties.Name" xml:space="preserve"><value>相邻图像缩略图</value></data>
+  <data name="ImageFilmstripList.AutomationProperties.Name" xml:space="preserve"><value>相邻图像</value></data>
+  <data name="ListingPanel.AutomationProperties.Name" xml:space="preserve"><value>文件夹或压缩包预览</value></data>
+  <data name="ListingBreadcrumbPanel.AutomationProperties.Name" xml:space="preserve"><value>列表路径导航</value></data>
+  <data name="ListingListView.AutomationProperties.Name" xml:space="preserve"><value>预览列表</value></data>
+  <data name="PreviousPdfPageButton.AutomationProperties.Name" xml:space="preserve"><value>上一 PDF 页</value></data>
+  <data name="NextPdfPageButton.AutomationProperties.Name" xml:space="preserve"><value>下一 PDF 页</value></data>
+  <data name="InfoTabButton.AutomationProperties.Name" xml:space="preserve"><value>显示文件信息</value></data>
+  <data name="ExifTabButton.AutomationProperties.Name" xml:space="preserve"><value>显示 EXIF 信息</value></data>
+  <data name="MoreTabButton.AutomationProperties.Name" xml:space="preserve"><value>显示更多预览操作</value></data>
+  <data name="ExifGoogleMapsText.Text" xml:space="preserve"><value>在 Google 地图中打开</value></data>
+  <data name="ExifGoogleMapsButton.AutomationProperties.Name" xml:space="preserve"><value>在 Google 地图中打开图像位置</value></data>
+  <data name="CopyPreviewFileButton.AutomationProperties.Name" xml:space="preserve"><value>复制正在预览的文件</value></data>
+  <data name="OpenPreviewFileButton.AutomationProperties.Name" xml:space="preserve"><value>打开正在预览的文件</value></data>
+  <data name="RevealPreviewFileButton.AutomationProperties.Name" xml:space="preserve"><value>在文件资源管理器中显示正在预览的文件</value></data>
+  <data name="DeletePreviewFileButton.AutomationProperties.Name" xml:space="preserve"><value>将正在预览的文件移到回收站</value></data>
+  <data name="OpenFileLocationButton.AutomationProperties.Name" xml:space="preserve"><value>打开文件位置</value></data>
+  <data name="ZoomOutButton.AutomationProperties.Name" xml:space="preserve"><value>缩小</value></data>
+  <data name="ImageZoomText.AutomationProperties.Name" xml:space="preserve"><value>当前缩放级别</value></data>
+  <data name="ZoomInButton.AutomationProperties.Name" xml:space="preserve"><value>放大</value></data>
+  <data name="FitToWindowButton.AutomationProperties.Name" xml:space="preserve"><value>适应窗口</value></data>
+  <data name="ZoomPreset50Button.AutomationProperties.Name" xml:space="preserve"><value>将缩放设置为 50%</value></data>
+  <data name="ZoomPreset100Button.AutomationProperties.Name" xml:space="preserve"><value>将缩放设置为 100%</value></data>
+  <data name="ZoomPreset200Button.AutomationProperties.Name" xml:space="preserve"><value>将缩放设置为 200%</value></data>
+  <data name="ActualSizeButton.AutomationProperties.Name" xml:space="preserve"><value>以实际大小显示图像</value></data>
+  <data name="ResetViewButton.AutomationProperties.Name" xml:space="preserve"><value>重置视图</value></data>
+  <data name="PreviousImageButton.AutomationProperties.Name" xml:space="preserve"><value>上一张图像</value></data>
+  <data name="NextImageButton.AutomationProperties.Name" xml:space="preserve"><value>下一张图像</value></data>
+  <data name="ListingNameHeader.AutomationProperties.Name" xml:space="preserve"><value>按名称排序</value></data>
+  <data name="ListingModifiedHeader.AutomationProperties.Name" xml:space="preserve"><value>按修改时间排序</value></data>
+  <data name="ListingTypeHeader.AutomationProperties.Name" xml:space="preserve"><value>按类型排序</value></data>
+  <data name="ListingSizeHeader.AutomationProperties.Name" xml:space="preserve"><value>按大小排序</value></data>
+  <data name="SettingsLanguageEnglish" xml:space="preserve"><value>英语</value></data>
+  <data name="SettingsLanguageSimplifiedChinese" xml:space="preserve"><value>简体中文</value></data>
+  <data name="SettingsLanguageTraditionalChinese" xml:space="preserve"><value>繁体中文</value></data>
+  <data name="PreviewStatusFormat" xml:space="preserve"><value>{0}：{1}</value></data>
+  <data name="PreviewErrorStatusFormat" xml:space="preserve"><value>错误：{0}</value></data>
+  <data name="PreviewKindImage" xml:space="preserve"><value>图像</value></data>
+  <data name="PreviewKindPdf" xml:space="preserve"><value>PDF</value></data>
+  <data name="PreviewKindText" xml:space="preserve"><value>文本</value></data>
+  <data name="PreviewKindMarkdown" xml:space="preserve"><value>Markdown</value></data>
+  <data name="PreviewKindTable" xml:space="preserve"><value>表格</value></data>
+  <data name="PreviewKindFolder" xml:space="preserve"><value>文件夹</value></data>
+  <data name="PreviewKindArchive" xml:space="preserve"><value>压缩包</value></data>
+  <data name="PreviewKindDocument" xml:space="preserve"><value>文档</value></data>
+  <data name="PreviewKindPresentation" xml:space="preserve"><value>演示文稿</value></data>
+  <data name="PreviewKindWorkbook" xml:space="preserve"><value>工作簿</value></data>
+  <data name="PreviewKindDatabase" xml:space="preserve"><value>数据库</value></data>
+  <data name="PreviewKindPackage" xml:space="preserve"><value>应用包</value></data>
+  <data name="PreviewKindCertificate" xml:space="preserve"><value>证书</value></data>
+  <data name="PreviewKindExecutable" xml:space="preserve"><value>可执行文件</value></data>
+  <data name="PreviewKindEbook" xml:space="preserve"><value>电子书</value></data>
+  <data name="PreviewKindTorrent" xml:space="preserve"><value>种子</value></data>
+  <data name="PreviewKindMedia" xml:space="preserve"><value>媒体</value></data>
+  <data name="PreviewKindVideo" xml:space="preserve"><value>视频</value></data>
+  <data name="PreviewKindAudio" xml:space="preserve"><value>音频</value></data>
+  <data name="PreviewKindFont" xml:space="preserve"><value>字体</value></data>
+  <data name="PreviewKindBinary" xml:space="preserve"><value>二进制</value></data>
+  <data name="PreviewKindUnknown" xml:space="preserve"><value>未知</value></data>
+  <data name="TableSheetTabAccessibleNameFormat" xml:space="preserve"><value>工作表 {0}</value></data>
+  <data name="ImageMetadataLabelFormat" xml:space="preserve"><value>格式</value></data>
+  <data name="ImageMetadataLabelTitle" xml:space="preserve"><value>标题</value></data>
+  <data name="ImageMetadataLabelComment" xml:space="preserve"><value>注释</value></data>
+  <data name="ImageMetadataLabelDimensions" xml:space="preserve"><value>尺寸</value></data>
+  <data name="ImageMetadataLabelResolution" xml:space="preserve"><value>分辨率</value></data>
+  <data name="ImageMetadataLabelBitDepth" xml:space="preserve"><value>位深度</value></data>
+  <data name="ImageMetadataLabelColorType" xml:space="preserve"><value>颜色类型</value></data>
+  <data name="ImageMetadataLabelCompression" xml:space="preserve"><value>压缩方式</value></data>
+  <data name="ImageMetadataLabelAlpha" xml:space="preserve"><value>Alpha 通道</value></data>
+  <data name="ImageMetadataLabelInterlace" xml:space="preserve"><value>隔行扫描</value></data>
+  <data name="ImageMetadataLabelAnimated" xml:space="preserve"><value>动画</value></data>
+  <data name="ImageMetadataLabelFrames" xml:space="preserve"><value>帧数</value></data>
+  <data name="ImageMetadataLabelAnimationDuration" xml:space="preserve"><value>动画时长</value></data>
+  <data name="ImageMetadataLabelDateTaken" xml:space="preserve"><value>拍摄时间</value></data>
+  <data name="ImageMetadataLabelCamera" xml:space="preserve"><value>相机</value></data>
+  <data name="ImageMetadataLabelLens" xml:space="preserve"><value>镜头</value></data>
+  <data name="ImageMetadataLabelFocalLength" xml:space="preserve"><value>焦距</value></data>
+  <data name="ImageMetadataLabelEquivalent35mm" xml:space="preserve"><value>35 毫米等效焦距</value></data>
+  <data name="ImageMetadataLabelAperture" xml:space="preserve"><value>光圈</value></data>
+  <data name="ImageMetadataLabelMaxAperture" xml:space="preserve"><value>最大光圈</value></data>
+  <data name="ImageMetadataLabelShutterSpeed" xml:space="preserve"><value>快门速度</value></data>
+  <data name="ImageMetadataLabelIso" xml:space="preserve"><value>ISO</value></data>
+  <data name="ImageMetadataLabelExposureBias" xml:space="preserve"><value>曝光补偿</value></data>
+  <data name="ImageMetadataLabelExposureProgram" xml:space="preserve"><value>曝光程序</value></data>
+  <data name="ImageMetadataLabelExposureMode" xml:space="preserve"><value>曝光模式</value></data>
+  <data name="ImageMetadataLabelMetering" xml:space="preserve"><value>测光模式</value></data>
+  <data name="ImageMetadataLabelWhiteBalance" xml:space="preserve"><value>白平衡</value></data>
+  <data name="ImageMetadataLabelLightSource" xml:space="preserve"><value>光源</value></data>
+  <data name="ImageMetadataLabelFlash" xml:space="preserve"><value>闪光灯</value></data>
+  <data name="ImageMetadataLabelDigitalZoom" xml:space="preserve"><value>数码变焦</value></data>
+  <data name="ImageMetadataLabelSubjectDistance" xml:space="preserve"><value>主体距离</value></data>
+  <data name="ImageMetadataLabelOrientation" xml:space="preserve"><value>方向</value></data>
+  <data name="ImageMetadataLabelPhotometric" xml:space="preserve"><value>光度解释</value></data>
+  <data name="ImageMetadataLabelContrast" xml:space="preserve"><value>对比度</value></data>
+  <data name="ImageMetadataLabelSaturation" xml:space="preserve"><value>饱和度</value></data>
+  <data name="ImageMetadataLabelSharpness" xml:space="preserve"><value>锐度</value></data>
+  <data name="ImageMetadataLabelGainControl" xml:space="preserve"><value>增益控制</value></data>
+  <data name="ImageMetadataLabelColorSpace" xml:space="preserve"><value>色彩空间</value></data>
+  <data name="ImageMetadataLabelLocation" xml:space="preserve"><value>位置</value></data>
+  <data name="ImageMetadataLabelAltitude" xml:space="preserve"><value>海拔</value></data>
+  <data name="ImageMetadataLabelDirection" xml:space="preserve"><value>方位角</value></data>
+  <data name="ImageMetadataLabelSoftware" xml:space="preserve"><value>软件</value></data>
+  <data name="ImageMetadataLabelCameraSerial" xml:space="preserve"><value>相机序列号</value></data>
+  <data name="ImageMetadataLabelLensSerial" xml:space="preserve"><value>镜头序列号</value></data>
+  <data name="ImageMetadataLabelExifVersion" xml:space="preserve"><value>EXIF 版本</value></data>
+  <data name="ImageMetadataDimensionsFormat" xml:space="preserve"><value>{0:N0} × {1:N0}</value></data>
+  <data name="ImageMetadataDurationSecondsFormat" xml:space="preserve"><value>{0:0.###} 秒</value></data>
+  <data name="ImageMetadataApertureFormat" xml:space="preserve"><value>f/{0:0.###}</value></data>
+  <data name="ImageMetadataExposureFractionFormat" xml:space="preserve"><value>1/{0:0} 秒</value></data>
+  <data name="ImageMetadataExposureSecondsFormat" xml:space="preserve"><value>{0:0.###} 秒</value></data>
+  <data name="ImageMetadataResolutionDpiFormat" xml:space="preserve"><value>{0:0.##} dpi</value></data>
+  <data name="ImageMetadataResolutionPairDpiFormat" xml:space="preserve"><value>{0:0.##} × {1:0.##} dpi</value></data>
+  <data name="ImageMetadataMillimetersFormat" xml:space="preserve"><value>{0:0.###} 毫米</value></data>
+  <data name="ImageMetadataExposureValueFormat" xml:space="preserve"><value>{0:0.###} EV</value></data>
+  <data name="ImageMetadataZoomRatioFormat" xml:space="preserve"><value>{0:0.###}×</value></data>
+  <data name="ImageMetadataMetersFormat" xml:space="preserve"><value>{0:0.###} 米</value></data>
+  <data name="ImageMetadataDegreesFormat" xml:space="preserve"><value>{0:0.###}°</value></data>
+  <data name="DeleteFileFailed" xml:space="preserve"><value>无法将文件移到回收站。</value></data>
+  <data name="OpenImageLocationFailed" xml:space="preserve"><value>无法在 Google 地图中打开图像位置。</value></data>
+  <data name="ByteSizeBytesFormat" xml:space="preserve"><value>{0:N0} 字节</value></data>
+  <data name="ByteSizeKilobytesFormat" xml:space="preserve"><value>{0:0.##} KB</value></data>
+  <data name="ByteSizeMegabytesFormat" xml:space="preserve"><value>{0:0.##} MB</value></data>
+  <data name="ByteSizeGigabytesFormat" xml:space="preserve"><value>{0:0.##} GB</value></data>
+  <data name="ByteSizeTerabytesFormat" xml:space="preserve"><value>{0:0.##} TB</value></data>
+  <data name="ListingFileTypeDisplay" xml:space="preserve"><value>文件</value></data>
+  <data name="ListingTypedFileFormat" xml:space="preserve"><value>{0} 文件</value></data>
+  <data name="ImageMetadataValueSeparator" xml:space="preserve"><value>、</value></data>
+  <data name="ImageMetadataValueYes" xml:space="preserve"><value>是</value></data>
+  <data name="ImageMetadataValueNo" xml:space="preserve"><value>否</value></data>
+  <data name="ImageMetadataValueNotDefined" xml:space="preserve"><value>未定义</value></data>
+  <data name="ImageMetadataValueManual" xml:space="preserve"><value>手动</value></data>
+  <data name="ImageMetadataValueNormalProgram" xml:space="preserve"><value>常规程序</value></data>
+  <data name="ImageMetadataValueAperturePriority" xml:space="preserve"><value>光圈优先</value></data>
+  <data name="ImageMetadataValueShutterPriority" xml:space="preserve"><value>快门优先</value></data>
+  <data name="ImageMetadataValueCreativeProgram" xml:space="preserve"><value>创意程序</value></data>
+  <data name="ImageMetadataValueActionProgram" xml:space="preserve"><value>运动程序</value></data>
+  <data name="ImageMetadataValuePortraitMode" xml:space="preserve"><value>人像模式</value></data>
+  <data name="ImageMetadataValueLandscapeMode" xml:space="preserve"><value>风景模式</value></data>
+  <data name="ImageMetadataValueAutoExposure" xml:space="preserve"><value>自动曝光</value></data>
+  <data name="ImageMetadataValueManualExposure" xml:space="preserve"><value>手动曝光</value></data>
+  <data name="ImageMetadataValueAutoBracket" xml:space="preserve"><value>自动包围曝光</value></data>
+  <data name="ImageMetadataValueUnknown" xml:space="preserve"><value>未知</value></data>
+  <data name="ImageMetadataValueAverage" xml:space="preserve"><value>平均</value></data>
+  <data name="ImageMetadataValueCenterWeightedAverage" xml:space="preserve"><value>中央重点平均</value></data>
+  <data name="ImageMetadataValueSpot" xml:space="preserve"><value>点测光</value></data>
+  <data name="ImageMetadataValueMultiSpot" xml:space="preserve"><value>多点测光</value></data>
+  <data name="ImageMetadataValuePattern" xml:space="preserve"><value>分区测光</value></data>
+  <data name="ImageMetadataValuePartial" xml:space="preserve"><value>局部测光</value></data>
+  <data name="ImageMetadataValueOther" xml:space="preserve"><value>其他</value></data>
+  <data name="ImageMetadataValueAuto" xml:space="preserve"><value>自动</value></data>
+  <data name="ImageMetadataValueDaylight" xml:space="preserve"><value>日光</value></data>
+  <data name="ImageMetadataValueFluorescent" xml:space="preserve"><value>荧光灯</value></data>
+  <data name="ImageMetadataValueTungsten" xml:space="preserve"><value>钨丝灯</value></data>
+  <data name="ImageMetadataValueFlash" xml:space="preserve"><value>闪光灯</value></data>
+  <data name="ImageMetadataValueFineWeather" xml:space="preserve"><value>晴天</value></data>
+  <data name="ImageMetadataValueCloudy" xml:space="preserve"><value>阴天</value></data>
+  <data name="ImageMetadataValueShade" xml:space="preserve"><value>阴影</value></data>
+  <data name="ImageMetadataValueDaylightFluorescent" xml:space="preserve"><value>日光型荧光灯</value></data>
+  <data name="ImageMetadataValueDayWhiteFluorescent" xml:space="preserve"><value>日白型荧光灯</value></data>
+  <data name="ImageMetadataValueCoolWhiteFluorescent" xml:space="preserve"><value>冷白型荧光灯</value></data>
+  <data name="ImageMetadataValueWhiteFluorescent" xml:space="preserve"><value>白色荧光灯</value></data>
+  <data name="ImageMetadataValueStandardLightA" xml:space="preserve"><value>标准光源 A</value></data>
+  <data name="ImageMetadataValueStandardLightB" xml:space="preserve"><value>标准光源 B</value></data>
+  <data name="ImageMetadataValueStandardLightC" xml:space="preserve"><value>标准光源 C</value></data>
+  <data name="ImageMetadataValueIsoStudioTungsten" xml:space="preserve"><value>ISO 影棚钨丝灯</value></data>
+  <data name="ImageMetadataValueUncalibrated" xml:space="preserve"><value>未校准</value></data>
+  <data name="ImageMetadataValueNormal" xml:space="preserve"><value>标准</value></data>
+  <data name="ImageMetadataValueSoft" xml:space="preserve"><value>柔和</value></data>
+  <data name="ImageMetadataValueHard" xml:space="preserve"><value>强烈</value></data>
+  <data name="ImageMetadataValueNone" xml:space="preserve"><value>无</value></data>
+  <data name="ImageMetadataValueLowGainUp" xml:space="preserve"><value>低增益增强</value></data>
+  <data name="ImageMetadataValueHighGainUp" xml:space="preserve"><value>高增益增强</value></data>
+  <data name="ImageMetadataValueLowGainDown" xml:space="preserve"><value>低增益降低</value></data>
+  <data name="ImageMetadataValueHighGainDown" xml:space="preserve"><value>高增益降低</value></data>
+  <data name="ImageMetadataValueGrayscale" xml:space="preserve"><value>灰度</value></data>
+  <data name="ImageMetadataValueTruecolor" xml:space="preserve"><value>真彩色</value></data>
+  <data name="ImageMetadataValueIndexedColor" xml:space="preserve"><value>索引色</value></data>
+  <data name="ImageMetadataValueGrayscaleWithAlpha" xml:space="preserve"><value>带 Alpha 的灰度</value></data>
+  <data name="ImageMetadataValueTruecolorWithAlpha" xml:space="preserve"><value>带 Alpha 的真彩色</value></data>
+  <data name="ImageMetadataValueOldJpeg" xml:space="preserve"><value>旧式 JPEG</value></data>
+  <data name="ImageMetadataValueWhiteIsZero" xml:space="preserve"><value>白色为零</value></data>
+  <data name="ImageMetadataValueBlackIsZero" xml:space="preserve"><value>黑色为零</value></data>
+  <data name="ImageMetadataValuePaletteColor" xml:space="preserve"><value>调色板颜色</value></data>
+  <data name="ImageMetadataValueTransparencyMask" xml:space="preserve"><value>透明蒙版</value></data>
+  <data name="ImageMetadataValueSeparated" xml:space="preserve"><value>分色</value></data>
+  <data name="ImageMetadataValueUncompressed" xml:space="preserve"><value>未压缩</value></data>
+  <data name="ImageMetadataValueCcittGroup3OneDimensional" xml:space="preserve"><value>CCITT Group 3 一维编码</value></data>
+  <data name="ImageMetadataValueGroup3Fax" xml:space="preserve"><value>Group 3 传真</value></data>
+  <data name="ImageMetadataValueGroup4Fax" xml:space="preserve"><value>Group 4 传真</value></data>
+  <data name="ImageMetadataValueLzw" xml:space="preserve"><value>LZW</value></data>
+  <data name="ImageMetadataValueJpeg" xml:space="preserve"><value>JPEG</value></data>
+  <data name="ImageMetadataValueDeflate" xml:space="preserve"><value>Deflate</value></data>
+  <data name="ImageMetadataValuePackBits" xml:space="preserve"><value>PackBits</value></data>
+  <data name="ImageMetadataValueSrgb" xml:space="preserve"><value>sRGB</value></data>
+  <data name="ImageMetadataFlashFired" xml:space="preserve"><value>已闪光</value></data>
+  <data name="ImageMetadataFlashDidNotFire" xml:space="preserve"><value>未闪光</value></data>
+  <data name="ImageMetadataFlashAuto" xml:space="preserve"><value>自动</value></data>
+  <data name="ImageMetadataFlashRedEyeReduction" xml:space="preserve"><value>防红眼</value></data>
+  <data name="ImageMetadataFlashReturnDetected" xml:space="preserve"><value>检测到回光</value></data>
+  <data name="ImageMetadataFlashReturnNotDetected" xml:space="preserve"><value>未检测到回光</value></data>
+  <data name="PdfSearchPlaceholder" xml:space="preserve"><value>在 PDF 中查找</value></data>
+  <data name="PdfSearchAccessibleName" xml:space="preserve"><value>在 PDF 预览中查找</value></data>
+  <data name="PdfSearchPreviousMatch" xml:space="preserve"><value>上一个 PDF 文本匹配项</value></data>
+  <data name="PdfSearchNextMatch" xml:space="preserve"><value>下一个 PDF 文本匹配项</value></data>
+  <data name="PdfSearchClose" xml:space="preserve"><value>关闭 PDF 搜索</value></data>
+  <data name="PdfSearchLoading" xml:space="preserve"><value>正在读取可搜索文本…</value></data>
+  <data name="PdfSearchUnavailable" xml:space="preserve"><value>此 PDF 无法使用文本搜索。</value></data>
+  <data name="PdfSearchNoText" xml:space="preserve"><value>未找到可搜索文本。</value></data>
+  <data name="PdfSearchEncrypted" xml:space="preserve"><value>此 PDF 已加密，无法搜索其中的文本。</value></data>
+  <data name="PdfSearchFailed" xml:space="preserve"><value>无法读取 PDF 文本。</value></data>
+  <data name="PdfSearchTruncated" xml:space="preserve"><value>为遵守预览限制，可搜索文本已截断。</value></data>
+  <data name="PdfSearchPartialFormat" xml:space="preserve"><value>可搜索文本不完整；有 {0:N0} 页无法读取。</value></data>
+  <data name="PdfCopyPageText" xml:space="preserve"><value>复制当前页文本</value></data>
+  <data name="PdfPageTextCopied" xml:space="preserve"><value>已复制页面文本</value></data>
+  <data name="PdfPageTextUnavailable" xml:space="preserve"><value>当前页没有可搜索文本。</value></data>
+  <data name="PdfDocumentEmptyStatus" xml:space="preserve"><value>此 PDF 不包含可预览的页面。</value></data>
+  <data name="PdfDocumentPartialStatusFormat" xml:space="preserve"><value>共有 {1:N0} 页，其中 {0:N0} 页无法渲染。</value></data>
+  <data name="PdfDocumentFailedStatus" xml:space="preserve"><value>无法渲染此 PDF 的任何页面。</value></data>
+  <data name="OfficeSlideCoverageFormat" xml:space="preserve"><value>正在显示 {1:N0} 张幻灯片中的 {0:N0} 张（预览上限 {2:N0} 张）。</value></data>
+  <data name="OfficeSheetCoverageFormat" xml:space="preserve"><value>正在显示 {1:N0} 个工作表中的 {0:N0} 个（预览上限 {2:N0} 个）。</value></data>
+  <data name="OfficePageCoverageFormat" xml:space="preserve"><value>正在显示 {1:N0} 个近似页面中的 {0:N0} 个（预览上限 {2:N0} 个）。</value></data>
+  <data name="CopyDiagnostics" xml:space="preserve"><value>复制诊断信息</value></data>
+  <data name="DiagnosticsCopied" xml:space="preserve"><value>诊断信息已复制。</value></data>
+</root>

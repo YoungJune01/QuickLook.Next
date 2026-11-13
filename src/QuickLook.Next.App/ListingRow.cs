@@ -1,0 +1,118 @@
+using QuickLook.Next.Contracts;
+using Microsoft.UI.Xaml.Media;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Microsoft.UI.Xaml;
+
+namespace QuickLook.Next.App;
+
+public sealed class ListingRow : INotifyPropertyChanged
+{
+    public ListingRow(PreviewListingItem item)
+    {
+        Name = item.Name;
+        Path = item.Path;
+        NativePath = item.NativePath;
+        IsFolder = item.IsFolder;
+        IsEncrypted = item.IsEncrypted;
+        IsArchive = !item.IsFolder && IsArchiveName(item.Name);
+        Glyph = ChooseGlyph(item);
+        TypeDisplay = BuildTypeDisplay(item);
+        SizeDisplay = item.IsFolder ? "" : MainWindow.FormatBytes(item.Size);
+        ModifiedDisplay = item.ModifiedUnix > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(item.ModifiedUnix).LocalDateTime.ToString("g")
+            : "";
+        EncryptedVisibility = IsEncrypted ? Visibility.Visible : Visibility.Collapsed;
+        AccessibleName = IsEncrypted
+            ? UiStrings.Format(UiStrings.ListingEncryptedRowAccessibleNameFormat, Name, TypeDisplay)
+            : Name;
+    }
+
+    public string Name { get; }
+    public string Path { get; }
+    public string? NativePath { get; }
+    public bool IsFolder { get; }
+    public bool IsEncrypted { get; }
+    public bool IsArchive { get; }
+    public string Glyph { get; }
+    public string ModifiedDisplay { get; }
+    public string TypeDisplay { get; }
+    public string SizeDisplay { get; }
+    public Visibility EncryptedVisibility { get; }
+    public string AccessibleName { get; }
+    public Visibility FolderGlyphVisibility
+        => IconSource is null && IsFolder ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ArchiveGlyphVisibility
+        => IconSource is null && IsArchive ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility NeutralGlyphVisibility
+        => IconSource is null && !IsFolder && !IsArchive ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility RasterIconVisibility
+        => IconSource is not null ? Visibility.Visible : Visibility.Collapsed;
+
+    private ImageSource? _iconSource;
+    public ImageSource? IconSource
+    {
+        get => _iconSource;
+        set
+        {
+            if (ReferenceEquals(_iconSource, value))
+                return;
+            _iconSource = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FolderGlyphVisibility));
+            OnPropertyChanged(nameof(ArchiveGlyphVisibility));
+            OnPropertyChanged(nameof(NeutralGlyphVisibility));
+            OnPropertyChanged(nameof(RasterIconVisibility));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    private static string ChooseGlyph(PreviewListingItem item)
+    {
+        if (item.IsFolder)
+            return "\uE8B7";
+
+        string ext = System.IO.Path.GetExtension(item.Name).ToLowerInvariant();
+        return ext switch
+        {
+            ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".tif" or ".tiff" or ".ico" or ".svg" => "\uEB9F",
+            ".mp4" or ".mkv" or ".mov" or ".avi" or ".webm" or ".wmv" => "\uE8B2",
+            ".mp3" or ".wav" or ".flac" or ".aac" or ".m4a" or ".ogg" => "\uE8D6",
+            ".zip" or ".rar" or ".7z" or ".tar" or ".tgz" or ".gz" or ".bz2" or ".xz" or ".zst"
+                or ".cab" or ".jar" or ".nupkg" or ".vsix" or ".whl" or ".cbz" or ".xpi"
+                or ".apk" or ".apks" or ".aab" or ".msix" or ".msixbundle" or ".appx"
+                or ".appxbundle" => "\uF012",
+            ".pdf" => "\uEA90",
+            ".epub" or ".fb2" or ".mobi" or ".azw" or ".azw3" => "\uE8A5",
+            ".doc" or ".docx" or ".xls" or ".xlsx" or ".ppt" or ".pptx" or ".odt" or ".ods" or ".odp" => "\uE8A5",
+            ".txt" or ".md" or ".log" or ".csv" or ".json" or ".xml" or ".yaml" or ".yml" => "\uE8A5",
+            ".cs" or ".rs" or ".js" or ".ts" or ".py" or ".java" or ".cpp" or ".h" or ".ps1" or ".bat" or ".cmd" or ".sh" => "\uE943",
+            ".exe" or ".dll" or ".msi" or ".appx" or ".msix" or ".apk" => "\uE756",
+            ".cer" or ".crt" or ".pem" or ".pfx" => "\uEB95",
+            ".torrent" => "\uE896",
+            ".iso" or ".img" => "\uEDA2",
+            _ => "\uE8A5",
+        };
+    }
+
+    private static string BuildTypeDisplay(PreviewListingItem item)
+    {
+        if (item.IsFolder)
+            return UiStrings.FolderTypeDisplay;
+        string format = System.IO.Path.GetExtension(item.Name).TrimStart('.').ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(format)
+            ? UiStrings.ListingFileTypeDisplay
+            : UiStrings.Format(UiStrings.ListingTypedFileFormat, format);
+    }
+
+    private static bool IsArchiveName(string name)
+        => System.IO.Path.GetExtension(name).ToLowerInvariant() is
+            ".zip" or ".rar" or ".7z" or ".tar" or ".tgz" or ".gz" or ".bz2" or ".xz" or ".zst"
+            or ".cab" or ".jar" or ".nupkg" or ".vsix" or ".whl" or ".cbz" or ".xpi"
+            or ".apk" or ".apks" or ".aab" or ".msix" or ".msixbundle" or ".appx"
+            or ".appxbundle";
+}

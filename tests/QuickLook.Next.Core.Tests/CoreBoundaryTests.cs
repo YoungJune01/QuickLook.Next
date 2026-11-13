@@ -1,0 +1,1297 @@
+using System.Diagnostics;
+using QuickLook.Next.App;
+using QuickLook.Next.Contracts;
+using QuickLook.Next.Core;
+using Xunit;
+
+namespace QuickLook.Next.Core.Tests;
+
+public sealed class CoreBoundaryTests : IDisposable
+{
+    [Fact]
+    public void Text_line_index_preserves_mixed_separators_and_trailing_line()
+    {
+        const string text = "alpha\r\nbeta\rgamma\n";
+        TextLineIndex index = TextLineIndex.Create(text);
+
+        Assert.Equal(
+            [new TextLineRange(1, 0, 5), new(2, 7, 4), new(3, 12, 5), new(4, 18, 0)],
+            index.Lines);
+        Assert.Equal(0, index.FindLineIndex(0));
+        Assert.Equal(1, index.FindLineIndex(7));
+        Assert.Equal(3, index.FindLineIndex(text.Length));
+    }
+
+    [Fact]
+    public void Table_presentation_policy_bounds_untrusted_rows_cells_and_text()
+    {
+        var source = new PreviewTable("csv")
+        {
+            Headers = Enumerable.Range(0, TablePresentationPolicy.MaxColumns + 1).Select(i => $"H{i}").ToArray(),
+            Rows = Enumerable.Range(0, TablePresentationPolicy.MaxRows + 1)
+                .Select(_ => new PreviewTableRow([new string('x', TablePresentationPolicy.MaxCellCharacters + 1)]))
+                .ToArray(),
+            TotalRows = TablePresentationPolicy.MaxRows + 1,
+            TotalColumns = TablePresentationPolicy.MaxColumns + 1,
+        };
+
+        PreviewTable bounded = TablePresentationPolicy.Bound(source);
+
+        Assert.True(bounded.IsPartial);
+        Assert.Equal(TablePresentationPolicy.MaxColumns, bounded.Headers.Length);
+        Assert.True(bounded.Rows.Length <= TablePresentationPolicy.MaxRows);
+        Assert.All(bounded.Rows, row => Assert.All(row.Cells, cell => Assert.True(cell.Length <= TablePresentationPolicy.MaxCellCharacters)));
+        Assert.True(bounded.Rows.Sum(row => row.Cells.Sum(cell => cell.Length))
+            + bounded.Headers.Sum(header => header.Length) <= TablePresentationPolicy.MaxCharacters);
+    }
+    private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "QuickLookNextTests", Guid.NewGuid().ToString("n"));
+
+    [Fact]
+    public void Text_search_matches_case_insensitively_without_overlap()
+        => Assert.Equal([0, 4], TextSearchIndex.FindMatches("Testtest", "test"));
+
+    [Fact]
+    public void Text_search_caps_dense_match_results()
+    {
+        string text = new('a', TextSearchIndex.MaxMatches + 100);
+
+        List<int> matches = TextSearchIndex.FindMatches(text, "a");
+
+        Assert.Equal(TextSearchIndex.MaxMatches, matches.Count);
+        Assert.Equal(TextSearchIndex.MaxMatches - 1, matches[^1]);
+    }
+
+    [Theory]
+    [InlineData("automatic", "plain", false, true)]
+    [InlineData("automatic", "code", false, false)]
+    [InlineData("always", "code", false, true)]
+    [InlineData("never", "plain", false, false)]
+    [InlineData("never", "markdown", false, true)]
+    [InlineData("never", "code", true, true)]
+    public void Text_wrapping_policy_preserves_markdown_layout(
+        string mode,
+        string format,
+        bool structuredMarkdown,
+        bool expected)
+        => Assert.Equal(expected, TextWrappingPolicy.ShouldWrap(mode, format, structuredMarkdown));
+
+    [Fact]
+    public void Listing_filter_matches_names_only_in_current_level()
+    {
+        PreviewListingItem[] items =
+        [
+            new("Root.txt", "Root.txt", "", false),
+            new("Docs", "Docs/", "", true),
+            new("Guide.txt", "Docs/Guide.txt", "Docs/", false),
+            new("Image.png", "Docs/Image.png", "Docs/", false),
+        ];
+
+        IReadOnlyList<PreviewListingItem> root = ListingFilter.CurrentLevel(items, "", "root");
+        IReadOnlyList<PreviewListingItem> docs = ListingFilter.CurrentLevel(items, "Docs/", ".txt");
+
+        Assert.Equal("Root.txt", Assert.Single(root).Name);
+        Assert.Equal("Guide.txt", Assert.Single(docs).Name);
+    }
+
+    [Fact]
+    public void Listing_filter_caps_untrusted_input_items()
+    {
+        PreviewListingItem[] items = Enumerable.Range(0, ListingFilter.MaxItems + 1)
+            .Select(index => new PreviewListingItem($"Item {index}", $"Item {index}", "", false))
+            .ToArray();
+
+        Assert.Equal(ListingFilter.MaxItems, ListingFilter.CurrentLevel(items, "", "").Count);
+    }
+
+    [Theory]
+    [InlineData("archive")]
+    [InlineData("PACKAGE")]
+    [InlineData("office")]
+    [InlineData("text")]
+    [InlineData("ebook")]
+    [InlineData("executable")]
+    [InlineData("torrent")]
+    [InlineData("certificate")]
+    [InlineData("database")]
+    [InlineData("mail")]
+    public void Parser_host_policy_accepts_registered_kinds(string kind)
+        => Assert.True(PreviewFormatPolicy.UsesParserHost(kind));
+
+    [Theory]
+    [InlineData("image")]
+    [InlineData("pdf")]
+    [InlineData("unknown")]
+    public void Parser_host_policy_rejects_unregistered_kinds(string kind)
+        => Assert.False(PreviewFormatPolicy.UsesParserHost(kind));
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("ebook")]
+    [InlineData("executable")]
+    [InlineData("torrent")]
+    [InlineData("certificate")]
+    [InlineData("database")]
+    public void Cloud_parser_host_policy_accepts_bounded_kinds(string kind)
+        => Assert.True(PreviewFormatPolicy.UsesCloudParserHost(kind));
+
+    [Theory]
+    [InlineData("archive")]
+    [InlineData("office")]
+    [InlineData("package")]
+    [InlineData("image")]
+    [InlineData("mail")]
+    public void Cloud_parser_host_policy_rejects_unbounded_or_raster_kinds(string kind)
+        => Assert.False(PreviewFormatPolicy.UsesCloudParserHost(kind));
+
+    [Theory]
+    [InlineData("archive", false, false, PreviewRoute.ParserHost)]
+    [InlineData("mail", false, false, PreviewRoute.ParserHost)]
+    [InlineData("text", true, false, PreviewRoute.ParserHost)]
+    [InlineData("archive", true, false, PreviewRoute.CloudMetadata)]
+    [InlineData("unknown", true, false, PreviewRoute.CloudMetadata)]
+    [InlineData("audio", true, false, PreviewRoute.CloudMetadata)]
+    [InlineData("video", false, false, PreviewRoute.Media)]
+    [InlineData("image", false, false, PreviewRoute.NativeThenRaster)]
+    [InlineData("image", false, true, PreviewRoute.RasterHost)]
+    [InlineData("pdf", true, false, PreviewRoute.NativeThenRaster)]
+    public void Preview_route_planner_preserves_host_and_cloud_boundaries(
+        string kind,
+        bool mayRequireHydration,
+        bool forceRaster,
+        PreviewRoute expected)
+        => Assert.Equal(expected, PreviewRoutePlanner.Plan(kind, mayRequireHydration, forceRaster));
+
+    [Fact]
+    public void Native_abi_rejects_mismatched_versions()
+    {
+        NativeAbi.EnsureCompatible(NativeAbi.Version);
+        Assert.Throws<InvalidOperationException>(() => NativeAbi.EnsureCompatible(NativeAbi.Version + 1));
+    }
+
+    [Theory]
+    [InlineData("HOOK_READY", NativeHookState.Ready, null, null)]
+    [InlineData("HOOK_STOPPED", NativeHookState.Stopped, null, null)]
+    [InlineData("HOOK_DEGRADED\tMOUSE\t5", NativeHookState.Degraded, "MOUSE", 5)]
+    [InlineData("HOOK_FAILED\tKEYBOARD\t-2147024891", NativeHookState.Failed, "KEYBOARD", -2147024891)]
+    public void Native_hook_status_protocol_is_bounded(
+        string line,
+        NativeHookState expectedState,
+        string? expectedComponent,
+        int? expectedError)
+    {
+        NativeHookStatus status = Assert.IsType<NativeHookStatus>(NativeHookStatus.TryParse(line));
+        Assert.Equal(expectedState, status.State);
+        Assert.Equal(expectedComponent, status.Component);
+        Assert.Equal(expectedError, status.ErrorCode);
+        Assert.Null(NativeIntent.TryParse(line));
+    }
+
+    [Theory]
+    [InlineData("HOOK_FAILED")]
+    [InlineData("HOOK_FAILED\tOTHER\t5")]
+    [InlineData("HOOK_FAILED\tKEYBOARD\tnot-a-number")]
+    [InlineData("HOOK_READY\textra")]
+    public void Native_hook_status_rejects_malformed_messages(string line)
+        => Assert.Null(NativeHookStatus.TryParse(line));
+
+    [Theory]
+    [InlineData("RELOAD", PreviewIntent.Reload)]
+    [InlineData("FULLSCREEN", PreviewIntent.Fullscreen)]
+    public void Native_intent_protocol_parses_preview_commands(string line, PreviewIntent expected)
+    {
+        NativeIntent intent = Assert.IsType<NativeIntent>(NativeIntent.TryParse(line));
+        Assert.Equal(expected, intent.Intent);
+        Assert.Null(intent.PrimaryPath);
+    }
+
+    [Fact]
+    public void Native_capabilities_reject_missing_features()
+    {
+        Assert.Equal(1UL << 3, NativeAbi.HandleSqliteSnapshot);
+        Assert.Equal(1UL << 4, NativeAbi.HandleArchive);
+        Assert.Equal(1UL << 5, NativeAbi.HandleOffice);
+        Assert.Equal(1UL << 6, NativeAbi.HandleEbook);
+        Assert.Equal(1UL << 7, NativeAbi.HandleArchiveEntry);
+        Assert.Equal(1UL << 8, NativeAbi.HandleStaticImage);
+        Assert.Equal(1UL << 9, NativeAbi.HandleSvg);
+        Assert.Equal(1UL << 10, NativeAbi.HandleGif);
+        Assert.Equal(1UL << 11, NativeAbi.HandlePackage);
+        Assert.Equal(1UL << 12, NativeAbi.HandlePackageIcon);
+        Assert.Equal(1UL << 13, NativeAbi.HandleProbe);
+        Assert.Equal(1UL << 14, NativeAbi.HandleRasterImage);
+        Assert.Equal(1UL << 15, NativeAbi.HandleAnimation);
+        Assert.Equal(1UL << 16, NativeAbi.HandleOfficeLayoutImage);
+        Assert.Equal(1UL << 17, NativeAbi.HandleImageWaveform);
+        Assert.Equal(1UL << 18, NativeAbi.HandleArchiveEntryOutput);
+        Assert.Equal(1UL << 19, NativeAbi.HandleImageMetadata);
+        Assert.Equal(1UL << 20, NativeAbi.DirectGifAnimationOutput);
+        Assert.Equal(1UL << 21, NativeAbi.HandleMail);
+        Assert.Equal(1UL << 22, NativeAbi.HandlePdfText);
+        Assert.Equal(
+            NativeAbi.HandleText
+                | NativeAbi.HandleExecutable
+                | NativeAbi.HandleTorrent
+                | NativeAbi.HandleSqliteSnapshot
+                | NativeAbi.HandleArchive
+                | NativeAbi.HandleOffice
+                | NativeAbi.HandleEbook
+                | NativeAbi.HandleArchiveEntry
+                | NativeAbi.HandleArchiveEntryOutput
+                | NativeAbi.HandlePackage
+                | NativeAbi.HandlePackageIcon
+                | NativeAbi.HandleOfficeLayoutImage
+                | NativeAbi.HandleMail
+                | NativeAbi.HandlePdfText,
+            NativeAbi.ParserHandleInputs);
+        Assert.Equal(
+            NativeAbi.HandleStaticImage | NativeAbi.HandleSvg | NativeAbi.HandleGif | NativeAbi.HandleRasterImage,
+            NativeAbi.RasterHandleInputs);
+        Assert.Equal(0UL, NativeAbi.RasterHandleInputs & NativeAbi.HandleAnimation);
+        Assert.Equal(0UL, NativeAbi.RasterHandleInputs & NativeAbi.HandleImageWaveform);
+        Assert.Equal(0UL, NativeAbi.RasterHandleInputs & NativeAbi.HandleImageMetadata);
+        Assert.Equal(0UL, NativeAbi.RasterHandleInputs & NativeAbi.DirectGifAnimationOutput);
+        NativeAbi.EnsureCapabilities(NativeAbi.RasterHandleInputs, NativeAbi.RasterHandleInputs);
+        NativeAbi.EnsureCapabilities(
+            NativeAbi.RasterHandleInputs | NativeAbi.HandleImageWaveform,
+            NativeAbi.RasterHandleInputs);
+        NativeAbi.EnsureCapabilities(NativeAbi.ParserHandleInputs, NativeAbi.ParserHandleInputs);
+        NativeAbi.EnsureCapabilities(
+            NativeAbi.ParserHandleInputs | (1UL << 63),
+            NativeAbi.ParserHandleInputs);
+        Assert.Throws<InvalidOperationException>(
+            () => NativeAbi.EnsureCapabilities(NativeAbi.HandleText, NativeAbi.ParserHandleInputs));
+    }
+
+    [Fact]
+    public void Pdf_text_json_accepts_only_bounded_ordered_page_models()
+    {
+        const string valid = """
+            {"status":"ready","pageCount":2,"pages":[{"pageIndex":0,"text":"Alpha","truncated":false},{"pageIndex":1,"text":"Beta","truncated":false}],"truncated":false,"failedPages":0}
+            """;
+        Assert.True(PdfTextJson.TryParse(valid, out PdfTextDocument? document, out string? error), error);
+        Assert.NotNull(document);
+        Assert.Equal(2, document.PageCount);
+        Assert.Equal("Beta", document.Pages[1].Text);
+
+        const string duplicatePage = """
+            {"status":"ready","pageCount":2,"pages":[{"pageIndex":0,"text":"Alpha","truncated":false},{"pageIndex":0,"text":"Beta","truncated":false}],"truncated":false,"failedPages":0}
+            """;
+        Assert.False(PdfTextJson.TryParse(duplicatePage, out _, out _));
+
+        string oversized = "{\"status\":\"ready\",\"pageCount\":1,\"pages\":[{\"pageIndex\":0,\"text\":\""
+            + new string('x', PdfTextJson.MaxPageTextBytes + 1)
+            + "\",\"truncated\":false}],\"truncated\":false,\"failedPages\":0}";
+        Assert.False(PdfTextJson.TryParse(oversized, out _, out _));
+
+        string documentJson = System.Text.Json.JsonSerializer.Serialize(
+            new PdfTextDocument(
+                "ready",
+                17,
+                Enumerable.Range(0, 17)
+                    .Select(index => new PdfTextPage(
+                        index,
+                        new string('x', PdfTextJson.MaxPageTextBytes),
+                        false))
+                    .ToArray(),
+                false,
+                0),
+            ProtocolJson.Options);
+        Assert.False(PdfTextJson.TryParse(documentJson, out _, out _));
+    }
+
+    [Fact]
+    public void Pdf_text_protocol_round_trips_handle_and_result_messages()
+    {
+        var open = new PdfTextOpenHandle("a".PadLeft(32, 'a'), 42, 128, "report.pdf");
+        ControlMessage parsedOpen = ProtocolJson.Deserialize(ProtocolJson.Serialize(open));
+        Assert.Equal(open, Assert.IsType<PdfTextOpenHandle>(parsedOpen));
+
+        var ready = new PdfTextReady(
+            "b".PadLeft(32, 'b'),
+            new PdfTextDocument(
+                "ready",
+                1,
+                [new PdfTextPage(0, "needle", false)],
+                false,
+                0));
+        ControlMessage parsedReady = ProtocolJson.Deserialize(ProtocolJson.Serialize(ready));
+        PdfTextReady roundTrip = Assert.IsType<PdfTextReady>(parsedReady);
+        Assert.Equal("needle", roundTrip.Document.Pages[0].Text);
+
+        var close = new PdfTextClose("d".PadLeft(32, 'd'));
+        ControlMessage parsedClose = ProtocolJson.Deserialize(ProtocolJson.Serialize(close));
+        Assert.Equal(close, Assert.IsType<PdfTextClose>(parsedClose));
+    }
+
+    [Fact]
+    public void Pdf_text_controller_maps_bounded_matches_to_pages_and_wraps_navigation()
+    {
+        var controller = new PdfTextController(
+            (_, _, _, _) => Task.FromResult<PdfTextDocument?>(null));
+        controller.ApplyDocument(new PdfTextDocument(
+            "ready",
+            3,
+            [
+                new PdfTextPage(0, "First needle", false),
+                new PdfTextPage(1, "Needle then needle", false),
+                new PdfTextPage(2, "   ", false),
+            ],
+            false,
+            0));
+
+        PdfTextSearchState state = controller.SetSearchQuery("NEEDLE");
+        Assert.Equal((1, 3, 0), (state.Current, state.Count, state.PageIndex));
+        state = controller.MoveSearch(1);
+        Assert.Equal((2, 3, 1), (state.Current, state.Count, state.PageIndex));
+        state = controller.MoveSearch(1);
+        Assert.Equal((3, 3, 1), (state.Current, state.Count, state.PageIndex));
+        state = controller.MoveSearch(1);
+        Assert.Equal((1, 3, 0), (state.Current, state.Count, state.PageIndex));
+        Assert.Equal("Needle then needle", controller.GetPageText(1));
+        Assert.Null(controller.GetPageText(2));
+    }
+
+    [Fact]
+    public void Pdf_text_controller_caps_dense_cross_page_matches()
+    {
+        var controller = new PdfTextController(
+            (_, _, _, _) => Task.FromResult<PdfTextDocument?>(null));
+        controller.ApplyDocument(new PdfTextDocument(
+            "ready",
+            2,
+            [
+                new PdfTextPage(0, new string('a', PdfTextController.MaxMatches), false),
+                new PdfTextPage(1, new string('a', PdfTextController.MaxMatches), false),
+            ],
+            false,
+            0));
+
+        PdfTextSearchState state = controller.SetSearchQuery("a");
+
+        Assert.Equal(PdfTextController.MaxMatches, state.Count);
+        Assert.Equal(0, state.PageIndex);
+    }
+
+    [Fact]
+    public async Task Pdf_text_controller_discards_stale_completion_and_releases_source()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "stale.pdf");
+        File.WriteAllBytes(path, "%PDF-1.7"u8.ToArray());
+        var source = WindowsHandleTransfer.OpenPinnedReadOnlyFile(path);
+        var extractionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishExtraction = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var controller = new PdfTextController(async (_, _, _, _) =>
+        {
+            extractionStarted.SetResult();
+            await finishExtraction.Task;
+            return new PdfTextDocument(
+                "ready",
+                1,
+                [new PdfTextPage(0, "stale text", false)],
+                false,
+                0);
+        });
+        controller.SetSource(source.Handle, source.Length, path);
+
+        Task<PdfTextSearchState> load = controller.EnsureLoadedAsync(CancellationToken.None);
+        await extractionStarted.Task;
+        controller.Clear();
+        finishExtraction.SetResult();
+        await load;
+
+        Assert.True(source.Handle.IsClosed);
+        Assert.Equal(PdfTextLoadStatus.Unavailable, controller.State.LoadStatus);
+        Assert.Null(controller.GetPageText(0));
+    }
+
+    [Fact]
+    public void Pdf_document_state_policy_distinguishes_empty_partial_and_failed_results()
+    {
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.Empty, 0, 0),
+            PdfDocumentStatePolicy.Evaluate(0, 0));
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.None, 0, 5),
+            PdfDocumentStatePolicy.Evaluate(5, 0));
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.Partial, 2, 5),
+            PdfDocumentStatePolicy.Evaluate(5, 2));
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.Failed, 5, 5),
+            PdfDocumentStatePolicy.Evaluate(5, 5));
+    }
+
+    [Fact]
+    public void Pdf_document_state_policy_bounds_untrusted_counts()
+    {
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.Empty, 0, 0),
+            PdfDocumentStatePolicy.Evaluate(-1, 4));
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.None, 0, 3),
+            PdfDocumentStatePolicy.Evaluate(3, -2));
+        Assert.Equal(
+            new PdfDocumentNotice(PdfDocumentNoticeKind.Failed, 3, 3),
+            PdfDocumentStatePolicy.Evaluate(3, 20));
+    }
+
+    [Fact]
+    public void Office_coverage_policy_combines_native_and_presenter_limits()
+    {
+        Assert.Equal(
+            new OfficeCoverage(16, 40, 16, true),
+            OfficeCoveragePolicy.Evaluate(30, 30, 40, 30, 16));
+        Assert.Equal(
+            new OfficeCoverage(6, 7, 6, true),
+            OfficeCoveragePolicy.Evaluate(6, 6, 7, 6, 16));
+        Assert.Equal(
+            new OfficeCoverage(3, 3, 6, false),
+            OfficeCoveragePolicy.Evaluate(3, 3, 3, 6, 16));
+    }
+
+    [Fact]
+    public void Office_coverage_policy_bounds_hostile_and_legacy_metadata()
+    {
+        Assert.Equal(
+            new OfficeCoverage(3, 3, 3, false),
+            OfficeCoveragePolicy.Evaluate(3, int.MaxValue, -1, 1, 16));
+        Assert.Equal(
+            new OfficeCoverage(4, 4, 16, false),
+            OfficeCoveragePolicy.Evaluate(4, 0, 0, 0, 16));
+        Assert.Equal(
+            new OfficeCoverage(0, 12, 1, true),
+            OfficeCoveragePolicy.Evaluate(-4, 8, 12, -2, 0));
+    }
+
+    [Fact]
+    public void Office_image_abi_bounds_control_and_pixel_payloads()
+    {
+        Assert.Equal(2048, NativeAbi.MaxOfficeImageRefUtf8Bytes);
+        Assert.Equal(768L * 1024, NativeAbi.MaxOfficeImageSourceBytes);
+        Assert.Equal(1024, NativeAbi.MaxOfficeImageDimension);
+        Assert.Equal(
+            8L + 1024L * 1024 * 4,
+            NativeAbi.MaxOfficeImagePacketBytes);
+    }
+
+    [Fact]
+    public void Native_v2_handle_status_values_are_stable()
+    {
+        Assert.Equal(0, NativeAbi.StatusOk);
+        Assert.Equal(-1, NativeAbi.StatusInvalidArgument);
+        Assert.Equal(-2, NativeAbi.StatusBufferTooSmall);
+        Assert.Equal(-3, NativeAbi.StatusCancelled);
+        Assert.Equal(-4, NativeAbi.StatusMalformed);
+        Assert.Equal(-5, NativeAbi.StatusIo);
+        Assert.Equal(-6, NativeAbi.StatusInvalidHandle);
+        Assert.Equal(-7, NativeAbi.StatusLengthMismatch);
+        Assert.Equal(-8, NativeAbi.StatusInternal);
+        Assert.Equal(-9, NativeAbi.StatusLimitExceeded);
+    }
+
+    [Fact]
+    public void Archive_handle_budget_supports_large_seek_only_listings()
+    {
+        Assert.Equal(256L * 1024 * 1024, NativeAbi.MaxParserHandleInputBytes);
+        Assert.True(NativeAbi.MaxArchiveHandleInputBytes >= 16L * 1024 * 1024 * 1024);
+        Assert.True(NativeAbi.MaxArchiveHandleInputBytes > NativeAbi.MaxParserHandleInputBytes);
+    }
+
+    [Theory]
+    [InlineData("file.vhdx", "disk-image")]
+    [InlineData("font.woff2", "font")]
+    [InlineData("mail.eml", "mail")]
+    [InlineData("data.sqlite", "database")]
+    [InlineData("data.db-wal", "database")]
+    [InlineData("data.sqlite3-shm", "database")]
+    [InlineData("dump.mdmp", "dump")]
+    [InlineData("library.so", "elf")]
+    public void Metadata_probe_preserves_registered_native_kinds(string path, string expectedKind)
+        => Assert.Equal(expectedKind, FallbackFileProbe.CreateMetadataOnlyProbe(path).Kind);
+
+    [Fact]
+    public void Preview_listing_json_preserves_encrypted_archive_metadata()
+    {
+        const string json = """
+            {"kind":"archive","title":"secure.zip","listing":{"rootName":"secure.zip","rootPath":"","listingKind":"archive","summary":"1 file","isPartial":false,"canPreviewEntries":false,"encryptedFileCount":1,"items":[{"name":"secret.txt","path":"secret.txt","parentPath":"","isFolder":false,"size":6,"packedSize":6,"modifiedUnix":0,"type":"TXT File","isEncrypted":true}]}}
+            """;
+
+        Assert.True(PreviewReadyJson.TryParse("request", json, out PreviewReady? ready, out string? error), error);
+        Assert.NotNull(ready?.Listing);
+        Assert.Equal(1, ready.Listing.EncryptedFileCount);
+        Assert.False(ready.Listing.CanPreviewEntries);
+        Assert.True(Assert.Single(ready.Listing.Items).IsEncrypted);
+    }
+
+    [Fact]
+    public void Preview_table_json_preserves_SQLite_sheets()
+    {
+        const string json = """
+            {"kind":"database","title":"sample.db - users","table":{"format":"sqlite","summary":"SQLite 3","delimiter":"","headers":["id"],"rows":[{"cells":["1"]}],"totalRows":1,"totalColumns":1,"isPartial":false,"sheets":[{"name":"users","table":{"format":"sqlite","delimiter":"","headers":["id"],"rows":[{"cells":["1"]}],"totalRows":1,"totalColumns":1,"isPartial":false}},{"name":"orders","table":{"format":"sqlite","delimiter":"","headers":["id","total"],"rows":[{"cells":["2","9.5"]}],"totalRows":1,"totalColumns":2,"isPartial":false}}]}}
+            """;
+
+        Assert.True(PreviewReadyJson.TryParse("request", json, out PreviewReady? ready, out string? error), error);
+        Assert.Equal(["users", "orders"], ready!.Table!.Sheets.Select(sheet => sheet.Name));
+        Assert.Equal(["id", "total"], ready.Table.Sheets[1].Table.Headers);
+        Assert.Equal("9.5", ready.Table.Sheets[1].Table.Rows[0].Cells[1]);
+    }
+
+    [Fact]
+    public void Preview_office_layout_json_preserves_coverage_and_lazy_image_reference_metadata()
+    {
+        const string json = """
+            {"kind":"office","title":"slides.pptx","officeLayout":{"layoutKind":"presentation","width":960,"height":540,"representedPageCount":30,"totalPageCount":42,"pageLimit":30,"pages":[{"title":"Slide 1","index":0,"width":960,"height":540,"cells":[],"items":[{"kind":"image","x":10,"y":20,"width":320,"height":180,"zIndex":2,"imageName":"photo.png","mimeType":"image/png","imageRef":"ppt/media/photo.png","imageByteLength":123456}]}]}}
+            """;
+
+        Assert.True(PreviewReadyJson.TryParse("request", json, out PreviewReady? ready, out string? error), error);
+        OfficeLayout layout = Assert.IsType<OfficeLayout>(ready!.OfficeLayout);
+        Assert.Equal(30, layout.RepresentedPageCount);
+        Assert.Equal(42, layout.TotalPageCount);
+        Assert.Equal(30, layout.PageLimit);
+        OfficeLayoutItem image = Assert.Single(Assert.Single(layout.Pages).Items);
+        Assert.Equal("ppt/media/photo.png", image.ImageRef);
+        Assert.Equal(123456, image.ImageByteLength);
+        Assert.Null(image.ImageBase64);
+    }
+
+    [Fact]
+    public void Preview_office_layout_json_accepts_legacy_inline_image_payload()
+    {
+        const string json = """
+            {"kind":"office","title":"legacy.docx","officeLayout":{"layoutKind":"document","width":720,"height":960,"pages":[{"title":"Page 1","index":0,"width":720,"height":960,"cells":[],"items":[{"kind":"image","imageName":"legacy.png","mimeType":"image/png","imageBase64":"AQID"}]}]}}
+            """;
+
+        Assert.True(PreviewReadyJson.TryParse("request", json, out PreviewReady? ready, out string? error), error);
+        OfficeLayoutItem image = Assert.Single(Assert.Single(ready!.OfficeLayout!.Pages).Items);
+        Assert.Null(image.ImageRef);
+        Assert.Equal(0, image.ImageByteLength);
+        Assert.Equal("AQID", image.ImageBase64);
+    }
+
+    [Theory]
+    [InlineData(".AVIF", "avif", true)]
+    [InlineData(".heif", "heic", true)]
+    [InlineData(".JXL", "jxl", true)]
+    [InlineData(".jpeg", "jpeg", false)]
+    [InlineData(".webp", "webp", false)]
+    [InlineData("C:\\private\\image.avif", null, false)]
+    [InlineData(".unknown", null, false)]
+    public void Image_codec_policy_normalizes_only_allowlisted_extensions(
+        string extension,
+        string? expectedFormat,
+        bool requiresSystemCodec)
+    {
+        Assert.Equal(expectedFormat, ImageCodecPolicy.NormalizeFormat(extension));
+        Assert.Equal(requiresSystemCodec, ImageCodecPolicy.RequiresSystemCodec(extension));
+    }
+
+    [Fact]
+    public void Markdown_search_index_uses_visible_ast_content()
+    {
+        var document = new PreviewMarkdown
+        {
+            IsPartial = true,
+            Blocks =
+            [
+                new PreviewMarkdownBlock("heading")
+                {
+                    Inlines = [new PreviewMarkdownInline("link") { Text = "Docs", Url = "https://example.test" }],
+                },
+                new PreviewMarkdownBlock("unorderedList")
+                {
+                    Children = [new PreviewMarkdownBlock("item") { Text = "First item" }],
+                },
+                new PreviewMarkdownBlock("table")
+                {
+                    TableHeaders = ["Name"],
+                    TableRows = [["QuickLook"]],
+                },
+            ],
+        };
+
+        Assert.Equal(
+            "Docs (https://example.test)\nFirst item\nName\nQuickLook\nPartial",
+            TextSearchIndex.BuildMarkdownVisibleText(document, "Partial"));
+    }
+
+    [Fact]
+    public void Markdown_table_search_index_obeys_cell_budget()
+    {
+        var table = new PreviewMarkdownBlock("table")
+        {
+            TableHeaders = Enumerable.Range(0, 100).Select(index => $"H{index}").ToArray(),
+            TableRows = Enumerable.Range(0, 200)
+                .Select(row => Enumerable.Range(0, 100).Select(column => $"{row}:{column}").ToArray())
+                .ToArray(),
+        };
+
+        string[] cells = TextSearchIndex.MarkdownTableText(table).Split('\n');
+
+        Assert.Equal(TextSearchIndex.MaxMarkdownTableCells, cells.Length);
+        Assert.Contains("H63", cells);
+        Assert.DoesNotContain("H64", cells);
+    }
+
+    [Fact]
+    public void Markdown_inline_search_index_obeys_depth_budget()
+    {
+        PreviewMarkdownInline inline = new("text") { Text = "leaf" };
+        for (int depth = 0; depth < 1000; depth++)
+            inline = new PreviewMarkdownInline("strong") { Text = $"depth-{depth}", Children = [inline] };
+
+        string text = TextSearchIndex.MarkdownInlineText([inline], "root");
+
+        Assert.StartsWith("depth-", text);
+        Assert.DoesNotContain("leaf", text);
+    }
+
+    [Fact]
+    public void Markdown_search_segments_map_visible_offsets()
+    {
+        var document = new PreviewMarkdown
+        {
+            Blocks =
+            [
+                new PreviewMarkdownBlock("paragraph") { Text = "Alpha" },
+                new PreviewMarkdownBlock("table")
+                {
+                    TableHeaders = ["Name"],
+                    TableRows = [["QuickLook"]],
+                },
+            ],
+        };
+
+        MarkdownVisibleTextIndex index = TextSearchIndex.BuildMarkdownVisibleTextIndex(document, "Partial");
+
+        Assert.Equal("Alpha\nName\nQuickLook", index.Text);
+        Assert.Equal(
+            [new MarkdownVisibleSegment(0, "Alpha"), new(6, "Name"), new(11, "QuickLook")],
+            index.Segments);
+    }
+
+    [Fact]
+    public void Markdown_search_index_excludes_unrendered_blocks_and_indexes_notice()
+    {
+        var document = new PreviewMarkdown
+        {
+            Blocks =
+            [
+                new PreviewMarkdownBlock("unorderedList")
+                {
+                    Children = Enumerable.Range(0, TextSearchIndex.MaxMarkdownBlocks + 1)
+                        .Select(index => new PreviewMarkdownBlock("item") { Text = $"Item {index}" })
+                        .ToArray(),
+                },
+            ],
+        };
+
+        MarkdownVisibleTextIndex index = TextSearchIndex.BuildMarkdownVisibleTextIndex(document, "Partial");
+
+        Assert.Equal(TextSearchIndex.MaxMarkdownBlocks + 1, index.Segments.Count);
+        Assert.DoesNotContain($"Item {TextSearchIndex.MaxMarkdownBlocks}", index.Text);
+        Assert.Equal("Partial", index.Segments[^1].Text);
+    }
+
+    [Fact]
+    public void Markdown_search_segments_preserve_offsets_after_empty_blocks()
+    {
+        var document = new PreviewMarkdown
+        {
+            Blocks =
+            [
+                new PreviewMarkdownBlock("paragraph"),
+                new PreviewMarkdownBlock("paragraph") { Text = "Visible" },
+            ],
+        };
+
+        MarkdownVisibleTextIndex index = TextSearchIndex.BuildMarkdownVisibleTextIndex(document, "Partial");
+
+        Assert.Equal("\nVisible", index.Text);
+        Assert.Equal(1, index.Segments[1].Start);
+    }
+
+    [Fact]
+    public void Markdown_presentation_flattens_lists_tables_and_outline_indices()
+    {
+        var document = new PreviewMarkdown
+        {
+            Blocks =
+            [
+                new PreviewMarkdownBlock("heading") { Level = 2, Text = "Title" },
+                new PreviewMarkdownBlock("unorderedList")
+                {
+                    Children = [new PreviewMarkdownBlock("listItem") { Text = "One" }, new PreviewMarkdownBlock("listItem") { Text = "Two" }],
+                },
+                new PreviewMarkdownBlock("table")
+                {
+                    TableHeaders = ["A", "B"],
+                    TableRows = [["1", "2"], ["3", "4"]],
+                },
+            ],
+        };
+
+        MarkdownPresentation presentation = MarkdownPresentationPolicy.Flatten(document, "Partial");
+
+        Assert.Equal(6, presentation.Items.Count);
+        Assert.Equal(Enumerable.Range(0, 6), presentation.Items.Select(item => item.Index));
+        Assert.Equal(["heading", "listItem", "listItem", "tableHeader", "tableRow", "tableRow"],
+            presentation.Items.Select(item => item.Block.Kind));
+        Assert.Equal(["", "- ", "- ", "", "", ""], presentation.Items.Select(item => item.Prefix));
+        Assert.Equal("Title\nOne\nTwo\nA\nB\n1\n2\n3\n4", presentation.Text);
+        Assert.Equal(presentation.Text, TextSearchIndex.BuildMarkdownVisibleText(document, "Partial"));
+    }
+
+    [Theory]
+    [InlineData(FileAttributes.Offline)]
+    [InlineData((FileAttributes)0x00040000)]
+    [InlineData((FileAttributes)0x00400000)]
+    [InlineData(FileAttributes.Archive | (FileAttributes)0x00400000)]
+    public void Cloud_file_status_detects_recall_attributes(FileAttributes attributes)
+        => Assert.True(CloudFileStatus.MayRequireHydration(attributes));
+
+    [Fact]
+    public void Cloud_file_status_ignores_local_file_attributes()
+        => Assert.False(CloudFileStatus.MayRequireHydration(FileAttributes.Archive | FileAttributes.ReadOnly));
+
+    [Theory]
+    [InlineData(0x9000001A)]
+    [InlineData(0x9000101A)]
+    [InlineData(0x9000F01A)]
+    public void Cloud_file_status_recognizes_cloud_reparse_tags(uint reparseTag)
+        => Assert.True(CloudFileStatus.IsCloudReparseTag(reparseTag));
+
+    [Theory]
+    [InlineData(0xA000000C)]
+    [InlineData(0x8000001B)]
+    [InlineData(0u)]
+    public void Cloud_file_status_rejects_unrelated_reparse_tags(uint reparseTag)
+        => Assert.False(CloudFileStatus.IsCloudReparseTag(reparseTag));
+
+    [Fact]
+    public void Hydrated_cloud_reparse_file_is_treated_as_local()
+        => Assert.False(CloudFileStatus.MayRequireHydration(FileAttributes.Archive | FileAttributes.ReparsePoint));
+
+    [Fact]
+    public void Cloud_file_status_fails_closed_when_path_cannot_be_inspected()
+    {
+        string missingPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n"), "missing.dat");
+
+        Assert.Equal(CloudFileAvailability.Unknown, CloudFileStatus.GetAvailability(missingPath));
+        Assert.True(CloudFileStatus.MayRequireHydration(missingPath));
+    }
+
+    [Theory]
+    [InlineData("cloud.config", "text")]
+    [InlineData("cloud.pdf", "pdf")]
+    [InlineData("cloud.docx", "office")]
+    [InlineData("cloud.png", "image")]
+    [InlineData("cloud.svg", "image")]
+    [InlineData("cloud.zip", "archive")]
+    [InlineData("cloud.rar", "archive")]
+    [InlineData("cloud.mp4", "video")]
+    [InlineData("cloud.cer", "certificate")]
+    [InlineData("cloud.vendor", "unknown")]
+    public void Metadata_only_probe_routes_without_content(string fileName, string expectedKind)
+    {
+        FileProbe probe = FallbackFileProbe.CreateMetadataOnlyProbe(fileName);
+        Assert.Equal(expectedKind, probe.Kind);
+        Assert.Empty(probe.MagicPrefix);
+    }
+
+    [Fact]
+    public void Certificate_bundles_report_a_stable_unsupported_status()
+    {
+        PreviewReady ready = CertificatePreview.Create("certificate-test", "missing.p7b", 42);
+
+        Assert.Equal("certificate", ready.Kind);
+        Assert.Contains("Status: certificate bundles are not supported", ready.TextContent);
+        Assert.DoesNotContain("Error:", ready.TextContent);
+    }
+
+    [Theory]
+    [InlineData("app.config")]
+    [InlineData("settings.cnf")]
+    [InlineData("install.inf")]
+    [InlineData("connection.rdp")]
+    [InlineData("Dockerfile")]
+    [InlineData(".editorconfig")]
+    public void Fallback_probe_recognizes_known_text_configs(string fileName)
+        => Assert.True(FallbackFileProbe.IsText(fileName, []));
+
+    [Fact]
+    public void Fallback_probe_sniffs_unknown_utf8_and_utf16_text()
+    {
+        Assert.True(FallbackFileProbe.IsText("settings.vendor", "feature=true\r\n"u8));
+        Assert.True(FallbackFileProbe.IsText("settings.vendor", [0xFF, 0xFE, (byte)'W', 0, (byte)'i', 0]));
+        Assert.True(FallbackFileProbe.IsText("settings.vendor", [], isEmptyFile: true));
+        Assert.False(FallbackFileProbe.IsText("settings.vendor", [], isEmptyFile: false));
+    }
+
+    [Fact]
+    public void Fallback_probe_rejects_unknown_binary_prefixes()
+    {
+        Assert.False(FallbackFileProbe.IsText("data.vendor", [0, 1, 2, 3]));
+        Assert.False(FallbackFileProbe.IsText("data.vendor", [0xFF, 0xD9, 0x80]));
+        Assert.False(FallbackFileProbe.IsText("data.vendor", "MZprintable header"u8));
+        Assert.False(FallbackFileProbe.IsText("data.vendor", "%PDF-readable header"u8));
+        Assert.False(FallbackFileProbe.IsText("payload.config", "MZprintable header"u8));
+        Assert.False(FallbackFileProbe.IsText("document.config", "%PDF-readable header"u8));
+        Assert.False(FallbackFileProbe.IsText(
+            "archive.vendor",
+            [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00]));
+        Assert.False(FallbackFileProbe.IsText("data.vendor", [0xFF, 0xFE, 0x00, 0xD8]));
+    }
+
+    [Fact]
+    public void Fallback_text_preview_decodes_windows_1252_config()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "legacy.ini");
+        File.WriteAllBytes(path, [.. "name=caf"u8.ToArray(), 0xE9]);
+
+        PreviewReady ready = Assert.IsType<PreviewReady>(
+            FallbackFileProbe.TryCreateTextPreview("request", path, CancellationToken.None));
+
+        Assert.Equal("name=café", ready.TextContent);
+        Assert.Equal("ini", ready.TextLanguage);
+    }
+
+    [Fact]
+    public void Fallback_text_preview_is_bounded()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "large.config");
+        File.WriteAllText(path, new string('a', 512 * 1024 + 10));
+
+        PreviewReady ready = Assert.IsType<PreviewReady>(
+            FallbackFileProbe.TryCreateTextPreview("request", path, CancellationToken.None));
+
+        Assert.EndsWith("[Preview truncated at 524288 bytes]", ready.TextContent);
+        Assert.Equal("xml", ready.TextLanguage);
+    }
+
+    [Fact]
+    public void Text_preview_display_budget_truncates_large_parser_payloads()
+    {
+        string source = new string('x', TextPreviewPolicy.MaxDisplayedCharacters + 1);
+
+        string displayed = TextPreviewPolicy.TrimForDisplay(source, "[truncated]");
+
+        Assert.All(
+            displayed[..TextPreviewPolicy.MaxDisplayedCharacters],
+            character => Assert.Equal('x', character));
+        Assert.EndsWith("\n\n[truncated]", displayed, StringComparison.Ordinal);
+        Assert.Equal(TextPreviewPolicy.MaxDisplayedCharacters + 13, displayed.Length);
+    }
+
+    [Fact]
+    public void Text_preview_display_budget_preserves_small_payloads()
+    {
+        const string source = "<html><body>small</body></html>";
+
+        Assert.Same(source, TextPreviewPolicy.TrimForDisplay(source, "[truncated]"));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_hero_raster_message()
+    {
+        var message = new HeroRasterExtracted("0".PadLeft(32, '0'), 1234, 3080, 32, 24);
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"hero.raster.extracted\"", json);
+        Assert.Equal(message, Assert.IsType<HeroRasterExtracted>(ProtocolJson.Deserialize(json)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_office_image_shared_section_messages()
+    {
+        string requestId = "0".PadLeft(32, '0');
+        string parentRequestId = "1".PadLeft(32, '1');
+        var open = new OfficeImageOpen(requestId, parentRequestId, "ppt/media/photo.png", 640, 480);
+        var ready = new OfficeImageReady(requestId, 1234, 1_228_808, 640, 480);
+        var close = new OfficeImageClose(requestId);
+
+        string openJson = ProtocolJson.Serialize(open);
+        string readyJson = ProtocolJson.Serialize(ready);
+        string closeJson = ProtocolJson.Serialize(close);
+
+        Assert.Contains("\"type\":\"office.image.open\"", openJson);
+        Assert.Equal(open, Assert.IsType<OfficeImageOpen>(ProtocolJson.Deserialize(openJson)));
+        Assert.Contains("\"type\":\"office.image.ready\"", readyJson);
+        Assert.Equal(ready, Assert.IsType<OfficeImageReady>(ProtocolJson.Deserialize(readyJson)));
+        Assert.Contains("\"type\":\"office.image.close\"", closeJson);
+        Assert.Equal(close, Assert.IsType<OfficeImageClose>(ProtocolJson.Deserialize(closeJson)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_animation_handoff_message()
+    {
+        var message = new PreviewAnimationFramesReady(
+            "0".PadLeft(32, '0'), "1".PadLeft(32, '1'), 1234, 3, 32, 24, 9232, true);
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"preview.animation.ready\"", json);
+        Assert.Contains("\"isTruncated\":true", json);
+        Assert.Equal(message, Assert.IsType<PreviewAnimationFramesReady>(ProtocolJson.Deserialize(json)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_handle_bound_image_metadata_messages_without_a_path()
+    {
+        string requestId = "2".PadLeft(32, '2');
+        string parentRequestId = "3".PadLeft(32, '3');
+        var metadata = new ImageMetadata
+        {
+            Format = "JPEG",
+            Width = 640,
+            Height = 480,
+            HorizontalResolution = 96,
+            VerticalResolution = 96,
+        };
+        var open = new PreviewImageMetadataOpen(requestId, parentRequestId);
+        var ready = new PreviewImageMetadataReady(requestId, parentRequestId, metadata);
+        var close = new PreviewImageMetadataClose(requestId);
+
+        string openJson = ProtocolJson.Serialize(open);
+        string readyJson = ProtocolJson.Serialize(ready);
+        string closeJson = ProtocolJson.Serialize(close);
+
+        Assert.Contains("\"type\":\"preview.image.metadata.open\"", openJson);
+        Assert.DoesNotContain("\"path\"", openJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(open, Assert.IsType<PreviewImageMetadataOpen>(ProtocolJson.Deserialize(openJson)));
+        Assert.Contains("\"type\":\"preview.image.metadata.ready\"", readyJson);
+        Assert.Equal(ready, Assert.IsType<PreviewImageMetadataReady>(ProtocolJson.Deserialize(readyJson)));
+        Assert.Contains("\"type\":\"preview.image.metadata.close\"", closeJson);
+        Assert.Equal(close, Assert.IsType<PreviewImageMetadataClose>(ProtocolJson.Deserialize(closeJson)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_shell_broker_handoff_message()
+    {
+        var message = new ShellThumbnailReady("0".PadLeft(32, '0'), 1234, 4104, 32, 32);
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"shell.thumbnail.ready\"", json);
+        Assert.Equal(message, Assert.IsType<ShellThumbnailReady>(ProtocolJson.Deserialize(json)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_bounded_image_waveform()
+    {
+        var message = new PreviewSurface("request", 1234, 64, 32, 96, "B8G8R8A8_UNORM")
+        {
+            TransferId = "0".PadLeft(32, '0'),
+            Waveform = new ImageWaveform(2, 2, new byte[12]),
+        };
+
+        string json = ProtocolJson.Serialize(message);
+
+        PreviewSurface decoded = Assert.IsType<PreviewSurface>(ProtocolJson.Deserialize(json));
+        Assert.Equal(message.RequestId, decoded.RequestId);
+        Assert.Equal(message.TransferId, decoded.TransferId);
+        Assert.NotNull(decoded.Waveform);
+        Assert.Equal((2, 2), (decoded.Waveform.Width, decoded.Waveform.Height));
+        Assert.Equal(message.Waveform.RgbDensity, decoded.Waveform.RgbDensity);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{\"width\":191,\"height\":96,\"rgbDensity\":\"AA==\"}")]
+    [InlineData("{\"width\":192,\"height\":96,\"rgbDensity\":\"AA==\"}")]
+    public void ImageWaveform_validation_rejects_malformed_protocol_payloads(string waveformJson)
+    {
+        string json = $$"""
+            {"type":"preview.surface","requestId":"request","sharedHandle":1234,"width":64,"height":32,"dpi":96,"format":"B8G8R8A8_UNORM","waveform":{{waveformJson}}}
+            """;
+
+        PreviewSurface surface = Assert.IsType<PreviewSurface>(ProtocolJson.Deserialize(json));
+
+        Assert.False(ImageWaveformBuilder.IsValid(surface.Waveform));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_archive_handle_message()
+    {
+        var message = new ArchiveEntryExtracted("2".PadLeft(32, '2'), 4096, "folder/report.pdf");
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"archive.entry.extracted\"", json);
+        Assert.DoesNotContain("tempPath", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(message, Assert.IsType<ArchiveEntryExtracted>(ProtocolJson.Deserialize(json)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_parent_bound_archive_extract_message()
+    {
+        var message = new ArchiveEntryExtract(
+            "3".PadLeft(32, '3'),
+            "",
+            "folder/report.pdf",
+            1234,
+            NativeAbi.MaxArchiveEntryOutputBytes)
+        {
+            ParentPreviewRequestId = "2".PadLeft(32, '2'),
+        };
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"archive.entry.extract\"", json);
+        Assert.Contains("\"parentPreviewRequestId\"", json);
+        Assert.Equal(message, Assert.IsType<ArchiveEntryExtract>(ProtocolJson.Deserialize(json)));
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_preview_open_handle_message()
+    {
+        var probe = new FileProbe("C:\\logical.txt", ".txt", "text"u8.ToArray())
+        {
+            Kind = "text",
+            Size = 4,
+            IsAnimated = true,
+        };
+        var message = new PreviewOpenHandle("3".PadLeft(32, '3'), 1234, 4, probe.Path, probe)
+        {
+            TargetWidth = 800,
+            TargetHeight = 600,
+            PrepareAnimation = true,
+        };
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"preview.open.handle\"", json);
+        PreviewOpenHandle roundTrip = Assert.IsType<PreviewOpenHandle>(ProtocolJson.Deserialize(json));
+        Assert.Equal(message.RequestId, roundTrip.RequestId);
+        Assert.Equal(message.SourceHandle, roundTrip.SourceHandle);
+        Assert.Equal(message.SourceLength, roundTrip.SourceLength);
+        Assert.Equal(message.LogicalPath, roundTrip.LogicalPath);
+        Assert.Equal(message.TargetWidth, roundTrip.TargetWidth);
+        Assert.Equal(message.TargetHeight, roundTrip.TargetHeight);
+        Assert.True(roundTrip.PrepareAnimation);
+        Assert.Equal(message.Probe.Kind, roundTrip.Probe.Kind);
+        Assert.Equal(message.Probe.MagicPrefix, roundTrip.Probe.MagicPrefix);
+        Assert.Equal(message.Probe.IsAnimated, roundTrip.Probe.IsAnimated);
+    }
+
+    [Fact]
+    public void ProtocolJson_accepts_legacy_file_probe_without_animation_metadata()
+    {
+        const string json = """
+            {"type":"preview.open.handle","requestId":"33333333333333333333333333333333","sourceHandle":1234,"sourceLength":6,"logicalPath":"C:\\logical.gif","probe":{"path":"C:\\logical.gif","extension":".gif","magicPrefix":"R0lGODlh","kind":"image","size":6,"modifiedUnix":0},"targetWidth":800,"targetHeight":600}
+            """;
+
+        PreviewOpenHandle open = Assert.IsType<PreviewOpenHandle>(ProtocolJson.Deserialize(json));
+
+        Assert.Null(open.Probe.IsAnimated);
+        Assert.False(open.PrepareAnimation);
+
+        const string pathJson = """
+            {"type":"preview.open","requestId":"44444444444444444444444444444444","path":"C:\\logical.gif","probe":{"path":"C:\\logical.gif","extension":".gif","magicPrefix":"R0lGODlh","kind":"image","size":6,"modifiedUnix":0},"targetWidth":800,"targetHeight":600}
+            """;
+        PreviewOpen pathOpen = Assert.IsType<PreviewOpen>(ProtocolJson.Deserialize(pathJson));
+        Assert.False(pathOpen.PrepareAnimation);
+    }
+
+    [Fact]
+    public void ProtocolJson_round_trips_SQLite_handle_bundle_message()
+    {
+        var probe = new FileProbe("C:\\logical.db", ".db", "SQLite format 3\0"u8.ToArray())
+        {
+            Kind = "database",
+            Size = 4096,
+        };
+        var message = new PreviewOpenSqliteHandles(
+            "4".PadLeft(32, '4'),
+            1234,
+            4096,
+            2345,
+            8192,
+            0,
+            0,
+            probe.Path,
+            probe);
+        string json = ProtocolJson.Serialize(message);
+
+        Assert.Contains("\"type\":\"preview.open.sqlite-handles\"", json);
+        PreviewOpenSqliteHandles roundTrip =
+            Assert.IsType<PreviewOpenSqliteHandles>(ProtocolJson.Deserialize(json));
+        Assert.Equal(message.RequestId, roundTrip.RequestId);
+        Assert.Equal(message.MainHandle, roundTrip.MainHandle);
+        Assert.Equal(message.MainLength, roundTrip.MainLength);
+        Assert.Equal(message.WalHandle, roundTrip.WalHandle);
+        Assert.Equal(message.WalLength, roundTrip.WalLength);
+        Assert.Equal(message.ShmHandle, roundTrip.ShmHandle);
+        Assert.Equal(message.ShmLength, roundTrip.ShmLength);
+        Assert.Equal(message.LogicalPath, roundTrip.LogicalPath);
+        Assert.Equal(message.Probe.Kind, roundTrip.Probe.Kind);
+        Assert.Equal(message.Probe.MagicPrefix, roundTrip.Probe.MagicPrefix);
+    }
+
+    [Fact]
+    public async Task Pending_request_times_out_and_rejects_late_result()
+    {
+        var pending = new PendingRequests();
+        var (id, completion) = pending.Begin(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAsync<TimeoutException>(() => completion);
+        Assert.False(pending.TryComplete(id, new PreviewError(id, "late")));
+    }
+
+    [Fact]
+    public void Read_only_handoff_handle_survives_source_close_and_path_delete()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "handoff.bin");
+        byte[] expected = "immutable handoff"u8.ToArray();
+        File.WriteAllBytes(path, expected);
+
+        var source = WindowsHandleTransfer.OpenReadOnlyFile(path);
+        using var duplicate = WindowsHandleTransfer.DuplicateFileFromProcess(
+            Process.GetCurrentProcess().SafeHandle,
+            source.Handle.DangerousGetHandle().ToInt64(),
+            expected.Length);
+        using var writeDuplicate = WindowsHandleTransfer.DuplicateFileFromProcess(
+            Process.GetCurrentProcess().SafeHandle,
+            source.Handle.DangerousGetHandle().ToInt64(),
+            expected.Length);
+        source.Handle.Dispose();
+        File.Delete(path);
+
+        using var stream = new FileStream(duplicate, FileAccess.Read);
+        var actual = new byte[expected.Length];
+        stream.ReadExactly(actual);
+        Assert.Equal(expected, actual);
+        Assert.Throws<UnauthorizedAccessException>(() => RandomAccess.Write(writeDuplicate, [0], 0));
+    }
+
+    [Fact]
+    public void Handoff_handle_rejects_mismatched_length()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "handoff-length.bin");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        var source = WindowsHandleTransfer.OpenReadOnlyFile(path);
+        using (source.Handle)
+        {
+            Assert.Throws<InvalidDataException>(() => WindowsHandleTransfer.DuplicateFileFromProcess(
+                Process.GetCurrentProcess().SafeHandle,
+                source.Handle.DangerousGetHandle().ToInt64(),
+                source.Length + 1));
+        }
+    }
+
+    [Fact]
+    public void File_identity_is_stable_across_independent_read_only_handles()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "identity.bin");
+        File.WriteAllBytes(path, "stable identity"u8.ToArray());
+        var source = WindowsHandleTransfer.OpenPinnedReadOnlyFile(path);
+        using (source.Handle)
+        using (var reopened = WindowsHandleTransfer.ReopenReadOnlyFile(source.Handle, source.Length))
+        {
+            string sourceIdentity = WindowsHandleTransfer.GetFileIdentity(source.Handle, source.Length);
+            string reopenedIdentity = WindowsHandleTransfer.GetFileIdentity(reopened, source.Length);
+            Assert.Equal(sourceIdentity, reopenedIdentity);
+            Assert.Throws<InvalidDataException>(
+                () => WindowsHandleTransfer.GetFileIdentity(reopened, source.Length + 1));
+        }
+    }
+
+    [Fact]
+    public void SQLite_handle_bundle_adopts_all_handles_before_late_validation_failure()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string mainPath = Path.Combine(_tempRoot, "bundle-main.db");
+        string walPath = Path.Combine(_tempRoot, "bundle-main.db-wal");
+        File.WriteAllBytes(mainPath, [1, 2, 3]);
+        File.WriteAllBytes(walPath, [4, 5]);
+        var main = WindowsHandleTransfer.OpenPinnedReadOnlyFile(mainPath);
+        var wal = WindowsHandleTransfer.OpenPinnedReadOnlyFile(walPath);
+        long mainDuplicate = WindowsHandleTransfer.DuplicateFileToProcess(
+            main.Handle,
+            Process.GetCurrentProcess().SafeHandle);
+        long walDuplicate = WindowsHandleTransfer.DuplicateFileToProcess(
+            wal.Handle,
+            Process.GetCurrentProcess().SafeHandle);
+        main.Handle.Dispose();
+        wal.Handle.Dispose();
+
+        Assert.Throws<InvalidDataException>(
+            () => WindowsHandleTransfer.TakeLocalSqliteFileHandles(
+                mainDuplicate,
+                main.Length,
+                walDuplicate,
+                wal.Length + 1,
+                0,
+                0));
+
+        File.WriteAllText(mainPath, "main released");
+        File.WriteAllText(walPath, "wal released");
+    }
+
+    [Fact]
+    public void SQLite_handle_bundle_rejects_duplicate_raw_values_without_double_ownership()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "bundle-duplicate.db");
+        File.WriteAllBytes(path, [1]);
+        var source = WindowsHandleTransfer.OpenPinnedReadOnlyFile(path);
+        long duplicate = WindowsHandleTransfer.DuplicateFileToProcess(
+            source.Handle,
+            Process.GetCurrentProcess().SafeHandle);
+        source.Handle.Dispose();
+
+        Assert.Throws<InvalidDataException>(
+            () => WindowsHandleTransfer.TakeLocalSqliteFileHandles(
+                duplicate,
+                source.Length,
+                duplicate,
+                source.Length,
+                0,
+                0));
+
+        File.WriteAllText(path, "released once");
+    }
+
+    [Fact]
+    public void Reopened_anchor_is_read_only_and_survives_the_writable_handle()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "reopened-anchor.bin");
+        byte[] expected = "reopened anchor"u8.ToArray();
+        using var writable = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite,
+            FileShare.Read | FileShare.Write | FileShare.Delete);
+        writable.Write(expected);
+        writable.Flush(flushToDisk: true);
+
+        using var transitional = WindowsHandleTransfer.ReopenTransitionalReadOnlyFile(writable.SafeFileHandle, expected.Length);
+        writable.Dispose();
+        using var anchor = WindowsHandleTransfer.ReopenReadOnlyFile(transitional, expected.Length);
+        using var stream = new FileStream(anchor, FileAccess.Read);
+        var actual = new byte[expected.Length];
+        stream.ReadExactly(actual);
+
+        Assert.Equal(expected, actual);
+        Assert.Throws<UnauthorizedAccessException>(() => RandomAccess.Write(anchor, [0], 0));
+    }
+
+    [Fact]
+    public void Read_shared_anchor_blocks_path_replacement()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        string path = Path.Combine(_tempRoot, "anchored.txt");
+        using var anchor = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Read);
+        anchor.Write("anchored"u8);
+        anchor.Flush();
+
+        Assert.Throws<IOException>(() => File.Delete(path));
+        Assert.Throws<IOException>(() => File.WriteAllText(path, "replaced"));
+        using var reader = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var text = new StreamReader(reader);
+        Assert.Equal("anchored", text.ReadToEnd());
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_tempRoot, recursive: true); } catch { }
+    }
+}

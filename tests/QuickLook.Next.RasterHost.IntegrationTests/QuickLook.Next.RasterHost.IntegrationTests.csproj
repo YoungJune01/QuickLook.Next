@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IsPackable>false</IsPackable>
+    <RasterHostOutput>$(MSBuildThisFileDirectory)..\..\src\QuickLook.Next.RasterHost\bin\$(Configuration)\net10.0-windows10.0.19041.0\win-x64\</RasterHostOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QuickLook.Next.Core\QuickLook.Next.Core.csproj" />
+    <ProjectReference Include="..\..\src\QuickLook.Next.RasterHost\QuickLook.Next.RasterHost.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\testdata\image-corpus\external\gif-disposal-background.gif"
+          Link="Fixtures\animated.gif"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\testdata\image-corpus\external\webp-animated.webp"
+          Link="Fixtures\animated.webp"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\QuickLook.Next.App\Assets\QuickLookNext.ico"
+          Link="Fixtures\static.ico"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\testdata\image-corpus\external\jpeg-wide-gamut-icc.jpg"
+          Link="Fixtures\static.jpg"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\testdata\image-corpus\external\jpeg-cmyk.jpg"
+          Link="Fixtures\cmyk.jpg"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="StageRasterHost" AfterTargets="Build">
+    <ItemGroup>
+      <RasterHostFiles Include="$(RasterHostOutput)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RasterHostFiles)" DestinationFiles="@(RasterHostFiles->'$(OutDir)RasterHost\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>

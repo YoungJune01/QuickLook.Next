@@ -1,0 +1,328 @@
+using System.Text;
+using QuickLook.Next.Contracts;
+
+namespace QuickLook.Next.Core;
+
+public static class FallbackFileProbe
+{
+    private const int MaxTextPreviewBytes = 512 * 1024;
+    private const string Windows1252Controls = "€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ";
+    private static readonly byte[] ZipSignature = [0x50, 0x4B, 0x03, 0x04];
+    private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47];
+    private static readonly byte[] JpegSignature = [0xFF, 0xD8, 0xFF];
+    private static readonly byte[] ElfSignature = [0x7F, (byte)'E', (byte)'L', (byte)'F'];
+    private static readonly byte[] Rar4Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00];
+    private static readonly byte[] Rar5Signature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00];
+
+    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".txt", ".md", ".markdown", ".log", ".csv", ".tsv", ".env", ".json", ".xml", ".xaml",
+        ".xsd", ".resx", ".config", ".manifest", ".policy", ".settings", ".ini", ".cfg", ".conf",
+        ".cnf", ".inf", ".url", ".desktop", ".service", ".reg", ".rdp", ".rc", ".prefs",
+        ".properties", ".yml", ".yaml", ".toml", ".bat", ".cmd", ".ps1", ".sh", ".bash", ".zsh",
+        ".cs", ".csproj", ".sln", ".props", ".targets", ".rs", ".js", ".jsx", ".mjs", ".cjs",
+        ".ts", ".tsx", ".css", ".scss", ".sass", ".less", ".html", ".htm", ".py", ".c", ".h",
+        ".cc", ".cpp", ".cxx", ".hpp", ".hxx", ".java", ".go", ".php", ".rb", ".pl", ".swift",
+        ".kt", ".kts", ".sql", ".lua", ".fs", ".fsx", ".vb", ".dart", ".scala", ".r", ".dockerfile",
+    };
+
+    private static readonly HashSet<string> TextFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Dockerfile", "Containerfile", "Makefile", "CMakeLists.txt", ".editorconfig", ".gitignore",
+        ".gitattributes", ".dockerignore", ".env",
+    };
+
+    private static readonly IReadOnlyDictionary<string, string> MetadataKinds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [".doc"] = "office",
+        [".docx"] = "office",
+        [".docm"] = "office",
+        [".xls"] = "office",
+        [".xlsx"] = "office",
+        [".xlsm"] = "office",
+        [".ppt"] = "office",
+        [".pptx"] = "office",
+        [".pptm"] = "office",
+        [".rtf"] = "office",
+        [".odt"] = "office",
+        [".ods"] = "office",
+        [".odp"] = "office",
+        [".pdf"] = "pdf",
+        [".png"] = "image",
+        [".jpg"] = "image",
+        [".jpeg"] = "image",
+        [".jpe"] = "image",
+        [".gif"] = "image",
+        [".bmp"] = "image",
+        [".dib"] = "image",
+        [".tif"] = "image",
+        [".tiff"] = "image",
+        [".webp"] = "image",
+        [".ico"] = "image",
+        [".heic"] = "image",
+        [".heif"] = "image",
+        [".avif"] = "image",
+        [".jxl"] = "image",
+        [".svg"] = "image",
+        [".zip"] = "archive",
+        [".jar"] = "archive",
+        [".nupkg"] = "archive",
+        [".vsix"] = "archive",
+        [".whl"] = "archive",
+        [".cbz"] = "archive",
+        [".xpi"] = "archive",
+        [".tar"] = "archive",
+        [".tgz"] = "archive",
+        [".gz"] = "archive",
+        [".rar"] = "archive",
+        [".apk"] = "package",
+        [".apks"] = "package",
+        [".aab"] = "package",
+        [".msix"] = "package",
+        [".msixbundle"] = "package",
+        [".appx"] = "package",
+        [".appxbundle"] = "package",
+        [".mp4"] = "video",
+        [".mkv"] = "video",
+        [".avi"] = "video",
+        [".mov"] = "video",
+        [".webm"] = "video",
+        [".flv"] = "video",
+        [".wmv"] = "video",
+        [".m4v"] = "video",
+        [".mpg"] = "video",
+        [".mpeg"] = "video",
+        [".3gp"] = "video",
+        [".mp3"] = "audio",
+        [".wav"] = "audio",
+        [".flac"] = "audio",
+        [".aac"] = "audio",
+        [".ogg"] = "audio",
+        [".m4a"] = "audio",
+        [".wma"] = "audio",
+        [".opus"] = "audio",
+        [".mid"] = "audio",
+        [".epub"] = "ebook",
+        [".fb2"] = "ebook",
+        [".mobi"] = "ebook",
+        [".azw"] = "ebook",
+        [".azw3"] = "ebook",
+        [".exe"] = "executable",
+        [".dll"] = "executable",
+        [".sys"] = "executable",
+        [".scr"] = "executable",
+        [".cpl"] = "executable",
+        [".ocx"] = "executable",
+        [".cer"] = "certificate",
+        [".crt"] = "certificate",
+        [".der"] = "certificate",
+        [".pem"] = "certificate",
+        [".p7b"] = "certificate",
+        [".p7c"] = "certificate",
+        [".torrent"] = "torrent",
+        [".img"] = "disk-image",
+        [".iso"] = "disk-image",
+        [".vhd"] = "disk-image",
+        [".vhdx"] = "disk-image",
+        [".vmdk"] = "disk-image",
+        [".dmg"] = "disk-image",
+        [".ttf"] = "font",
+        [".otf"] = "font",
+        [".ttc"] = "font",
+        [".otc"] = "font",
+        [".woff"] = "font",
+        [".woff2"] = "font",
+        [".sqlite"] = "database",
+        [".sqlite3"] = "database",
+        [".db"] = "database",
+        [".db3"] = "database",
+        [".s3db"] = "database",
+        [".sqlite-shm"] = "database",
+        [".sqlite-wal"] = "database",
+        [".mdb"] = "database",
+        [".accdb"] = "database",
+        [".eml"] = "mail",
+        [".msg"] = "mail",
+        [".mbox"] = "mail",
+        [".emlx"] = "mail",
+        [".chm"] = "chm",
+        [".dmp"] = "dump",
+        [".mdmp"] = "dump",
+        [".dump"] = "dump",
+        [".core"] = "dump",
+        [".elf"] = "elf",
+        [".so"] = "elf",
+        [".o"] = "elf",
+    };
+
+    public static FileProbe CreateMetadataOnlyProbe(string path)
+    {
+        string extension = Path.GetExtension(path);
+        string fileName = Path.GetFileName(path);
+        string kind = TextExtensions.Contains(extension) || TextFileNames.Contains(fileName)
+            ? "text"
+            : fileName.EndsWith("-wal", StringComparison.OrdinalIgnoreCase)
+                || fileName.EndsWith("-shm", StringComparison.OrdinalIgnoreCase)
+                ? "database"
+                : MetadataKinds.GetValueOrDefault(extension, "unknown");
+        long size = 0;
+        long modifiedUnix = 0;
+        try
+        {
+            var info = new FileInfo(path);
+            size = info.Length;
+            modifiedUnix = new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeSeconds();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+        }
+        return new FileProbe(path, extension, [])
+        {
+            Kind = kind,
+            Size = size,
+            ModifiedUnix = modifiedUnix,
+        };
+    }
+
+    public static bool IsText(string path, ReadOnlySpan<byte> prefix, bool isEmptyFile = false)
+    {
+        if (HasKnownBinarySignature(prefix))
+            return false;
+        if (TextExtensions.Contains(Path.GetExtension(path)) || TextFileNames.Contains(Path.GetFileName(path)))
+            return true;
+        if (isEmptyFile)
+            return true;
+        if (prefix.IsEmpty)
+            return false;
+        if (prefix.Length >= 2 && prefix[0] == 0xFF && prefix[1] == 0xFE)
+            return IsPrintableUtf16(prefix[2..], littleEndian: true);
+        if (prefix.Length >= 2 && prefix[0] == 0xFE && prefix[1] == 0xFF)
+            return IsPrintableUtf16(prefix[2..], littleEndian: false);
+        if (prefix.Contains((byte)0))
+            return false;
+
+        try
+        {
+            string text = new UTF8Encoding(false, true).GetString(prefix);
+            return IsPrintable(text);
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    public static PreviewReady? TryCreateTextPreview(string requestId, string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            int length = checked((int)Math.Min(stream.Length, MaxTextPreviewBytes + 1L));
+            byte[] bytes = new byte[length];
+            stream.ReadExactly(bytes);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            bool truncated = bytes.Length > MaxTextPreviewBytes;
+            if (truncated)
+                Array.Resize(ref bytes, MaxTextPreviewBytes);
+            string text = DecodeText(bytes);
+            if (truncated)
+                text += $"\n\n[Preview truncated at {MaxTextPreviewBytes} bytes]";
+
+            (string format, string language) = GetTextFormat(path);
+            return new PreviewReady(requestId, "text", Path.GetFileName(path), 820, 620)
+            {
+                TextContent = text,
+                TextFormat = format,
+                TextLanguage = language,
+            };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or DecoderFallbackException)
+        {
+            return null;
+        }
+    }
+
+    private static string DecodeText(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.StartsWith(Encoding.UTF8.Preamble))
+            return Encoding.UTF8.GetString(bytes[Encoding.UTF8.Preamble.Length..]);
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            return Encoding.Unicode.GetString(bytes[2..]);
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            return Encoding.BigEndianUnicode.GetString(bytes[2..]);
+        try
+        {
+            return new UTF8Encoding(false, true).GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return DecodeWindows1252(bytes);
+        }
+    }
+
+    private static string DecodeWindows1252(ReadOnlySpan<byte> bytes)
+    {
+        return string.Create(bytes.Length, bytes.ToArray(), (chars, source) =>
+        {
+            for (int i = 0; i < source.Length; i++)
+                chars[i] = source[i] is >= 0x80 and <= 0x9F ? Windows1252Controls[source[i] - 0x80] : (char)source[i];
+        });
+    }
+
+    private static (string Format, string Language) GetTextFormat(string path)
+    {
+        string fileName = Path.GetFileName(path);
+        if (fileName.Equals(".editorconfig", StringComparison.OrdinalIgnoreCase)) return ("code", "ini");
+        if (fileName.Equals(".env", StringComparison.OrdinalIgnoreCase)) return ("code", "env");
+        string extension = Path.GetExtension(path).ToLowerInvariant();
+        return extension switch
+        {
+            ".md" or ".markdown" => ("markdown", "markdown"),
+            ".json" => ("code", "json"),
+            ".xml" or ".xaml" or ".xsd" or ".resx" or ".config" or ".manifest" or ".policy" or ".settings" or ".csproj" or ".props" or ".targets" => ("code", "xml"),
+            ".ini" or ".cfg" or ".conf" or ".cnf" or ".inf" or ".url" or ".desktop" or ".service" or ".reg" => ("code", "ini"),
+            ".rdp" or ".rc" or ".prefs" or ".properties" => ("code", "properties"),
+            ".yml" or ".yaml" => ("code", "yaml"),
+            ".toml" => ("code", "toml"),
+            ".ps1" => ("code", "powershell"),
+            ".bat" or ".cmd" => ("code", "batch"),
+            _ => ("plain", "text"),
+        };
+    }
+
+    private static bool HasKnownBinarySignature(ReadOnlySpan<byte> prefix)
+        => prefix.StartsWith("MZ"u8)
+           || prefix.StartsWith("%PDF"u8)
+           || prefix.StartsWith(ZipSignature)
+           || prefix.StartsWith(PngSignature)
+           || prefix.StartsWith(JpegSignature)
+           || prefix.StartsWith("GIF8"u8)
+           || prefix.StartsWith(Rar4Signature)
+           || prefix.StartsWith(Rar5Signature)
+           || prefix.StartsWith("SQLite format 3\0"u8)
+           || prefix.StartsWith(ElfSignature);
+
+    private static bool IsPrintableUtf16(ReadOnlySpan<byte> bytes, bool littleEndian)
+    {
+        if (bytes.Length < 2 || bytes.Length % 2 != 0)
+            return false;
+        try
+        {
+            var encoding = new UnicodeEncoding(!littleEndian, false, true);
+            return IsPrintable(encoding.GetString(bytes));
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPrintable(string text)
+    {
+        if (text.Length == 0)
+            return false;
+        int printable = text.Count(static ch => ch is '\t' or '\r' or '\n' || !char.IsControl(ch));
+        return printable * 100 / text.Length >= 90;
+    }
+}

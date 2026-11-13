@@ -1,0 +1,903 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using Microsoft.UI.Dispatching;
+using QuickLook.Next.Contracts;
+using QuickLook.Next.Core;
+
+namespace QuickLook.Next.App;
+
+/// <summary>
+/// Owns the App↔RasterHost boundary: launches the host, owns the control pipe (App is the server),
+/// performs the Hello/HostReady handshake, dispatches messages, and restarts the host on crash
+/// (App-as-supervisor, validated in Spike 1). Preview opens are tracked with a watchdog (Core).
+/// </summary>
+internal sealed class RasterHostSupervisor
+{
+    private static readonly TimeSpan PreviewTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan AnimationDecodeTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan ImageMetadataTimeout = TimeSpan.FromMilliseconds(1500);
+    private static readonly TimeSpan HostConnectTimeout = TimeSpan.FromSeconds(5);
+
+    private readonly string _hostExePath;
+    private readonly DispatcherQueue _ui;
+    private readonly PendingRequests _pending = new();
+    private readonly ConcurrentDictionary<string, byte> _cloudOriginRequests = new();
+    private readonly ConcurrentDictionary<(string RequestId, int PageIndex, long PageGeneration), byte> _pendingCloudPages = new();
+    private readonly ConcurrentDictionary<string, Task> _handleOpenSends = new();
+
+    private NamedPipeServerStream? _server;
+    private PipeChannel? _channel;
+    private Process? _host;
+    private HostProcessJob? _job;
+    private string? _sessionToken;
+    private int _generation;
+    private int _restartAttempts;
+    private bool _stopping;
+    private bool _backgroundEfficiencyEnabled = true;
+    private readonly SemaphoreSlim _startLock = new(1, 1);
+    private readonly object _stateLock = new();
+    private TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private string? _activeRequestId;
+    private string? _activePath;
+
+    /// <summary>Raised on the UI thread when the host hands over a (new) shared surface to compose.</summary>
+    public event Action<PreviewSurface>? SurfaceReceived;
+    public event Action<PreviewPageError>? PageErrorReceived;
+    public event Action<PreviewImageWaveform>? ImageWaveformReceived;
+    public event Action<PreviewImageThumbnail>? ImageThumbnailReceived;
+    public event Action<PreviewImageRefreshError>? ImageRefreshFailed;
+
+    public long AdapterLuid { get; private set; }
+    public bool HdrScRgbSurfaceSupported { get; private set; }
+    public bool HdrDisplayEnabled { get; set; }
+    public bool ImageRefreshSupported { get; private set; }
+
+    public RasterHostSupervisor(string hostExePath, DispatcherQueue ui)
+    {
+        _hostExePath = hostExePath;
+        _ui = ui;
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
+    {
+        using var trace = DiagLog.TraceScope("App", "host start", 500);
+        _stopping = false;
+        int gen = ++_generation;
+        HdrScRgbSurfaceSupported = false;
+        ImageRefreshSupported = false;
+        _handleOpenSends.Clear();
+        _ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Dispose the old channel + process + pipe before creating new ones (prevents handle leaks on restart).
+        _channel?.Dispose();
+        _channel = null;
+        try { _job?.Dispose(); } catch { }
+        _job = null;
+        try { _host?.Dispose(); } catch { }
+        _host = null;
+        _server?.Dispose();
+        string pipeName = $"quicklook_next_{Environment.ProcessId}_{RandomNumberGenerator.GetHexString(16)}";
+        _sessionToken = RandomNumberGenerator.GetHexString(32);
+        _server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+
+        DiagLog.Write("App", $"launching host: {_hostExePath} (exists={File.Exists(_hostExePath)})");
+        var job = new HostProcessJob((nint)(1024L * 1024 * 1024));
+        try
+        {
+            _host = HostProcessLauncher.StartRestricted(
+                _hostExePath, ["--pipe", pipeName, "--session-token", _sessionToken], job);
+            _job = job;
+        }
+        catch
+        {
+            try { if (_host is { HasExited: false }) _host.Kill(entireProcessTree: true); } catch { }
+            try { _host?.Dispose(); } catch { }
+            _host = null;
+            job.Dispose();
+            throw;
+        }
+        ProcessPowerMode.SetProcessBackgroundEfficiency(_host, _backgroundEfficiencyEnabled, "App");
+        if (_host is { } launchedHost)
+        {
+            launchedHost.Exited += (_, _) => OnHostExited(gen, launchedHost);
+            launchedHost.EnableRaisingEvents = true;
+        }
+        DiagLog.Write("App", $"host pid={_host?.Id}; waiting for pipe connection");
+
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        connectCts.CancelAfter(HostConnectTimeout);
+        try
+        {
+            await _server.WaitForConnectionAsync(connectCts.Token);
+            if (!GetNamedPipeClientProcessId(_server.SafePipeHandle.DangerousGetHandle(), out uint clientPid)
+                || _host is null
+                || clientPid != _host.Id)
+            {
+                throw new InvalidOperationException("RasterHost pipe client did not match the launched process");
+            }
+            DiagLog.Write("App", $"host pipe connected gen={gen}");
+        }
+        catch
+        {
+            TryKillHost();
+            throw;
+        }
+
+        _channel = new PipeChannel(_server);
+        await _channel.SendAsync(new Hello(Environment.ProcessId, _sessionToken));
+        DiagLog.Write("App", "host connected; sent hello");
+        _restartAttempts = 0;
+        _ = ReadLoopAsync(_channel, gen);
+        try
+        {
+            using var readyCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readyCts.CancelAfter(HostConnectTimeout);
+            await _ready.Task.WaitAsync(readyCts.Token);
+        }
+        catch
+        {
+            _channel?.Dispose();
+            _channel = null;
+            TryKillHost();
+            throw;
+        }
+    }
+
+    public async Task EnsureStartedAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsConnected)
+            return;
+
+        DiagLog.Write("App", "host ensure start waiting");
+        await _startLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!IsConnected)
+                await StartCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _startLock.Release();
+        }
+    }
+
+    private bool IsConnected
+    {
+        get
+        {
+            try
+            {
+                return _channel is not null
+                    && _host is { HasExited: false }
+                    && _ready.Task.IsCompletedSuccessfully;
+            }
+            catch { return false; }
+        }
+    }
+
+    private async Task ReadLoopAsync(PipeChannel channel, int gen)
+    {
+        try
+        {
+            DiagLog.Write("App", $"host read loop start gen={gen}");
+            while (true)
+            {
+                ControlMessage? msg = await channel.ReceiveAsync();
+                if (msg is null || gen != _generation)
+                {
+                    DiagLog.Write("App", $"host read loop stop gen={gen}; msgNull={msg is null}; currentGen={_generation}");
+                    if (msg is null && gen == _generation)
+                        throw new EndOfStreamException("RasterHost pipe closed");
+                    break;
+                }
+                Dispatch(msg);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (gen != _generation)
+                return;
+            DiagLog.Write("App", "host read loop failed: " + ex.Message);
+            _ready.TrySetException(ex);
+            _handleOpenSends.Clear();
+            ClearCloudRequestState();
+            _pending.FailAll(ex);
+        }
+    }
+
+    private void Dispatch(ControlMessage msg)
+    {
+        DiagLog.Write("App", "host recv " + msg.GetType().Name);
+        switch (msg)
+        {
+            case HostReady ready:
+                AdapterLuid = ready.AdapterLuid;
+                HdrScRgbSurfaceSupported = ready.HdrScRgbSurfaceSupported;
+                ImageRefreshSupported = ready.ImageRefreshSupported;
+                _ready.TrySetResult();
+                break;
+            case PreviewSurface surface:
+                ReceiveSurface(surface);
+                break;
+            case PreviewReady ready:
+                _pending.TryComplete(ready.RequestId, ready);
+                break;
+            case PreviewImageWaveform waveform:
+                _ui.TryEnqueue(() => ImageWaveformReceived?.Invoke(waveform));
+                break;
+            case PreviewImageThumbnail thumbnail:
+                if (thumbnail.HasValidPixels())
+                    _ui.TryEnqueue(() => ImageThumbnailReceived?.Invoke(thumbnail));
+                break;
+            case PreviewImageRefreshError refreshError:
+                _ui.TryEnqueue(() => ImageRefreshFailed?.Invoke(refreshError));
+                break;
+            case PreviewImageMetadataReady metadata:
+                _pending.TryComplete(metadata.RequestId, metadata);
+                break;
+            case PreviewAnimationFramesReady animation:
+                _pending.TryComplete(animation.RequestId, animation);
+                break;
+            case PreviewError error:
+                RemoveCloudRequestState(error.RequestId);
+                _pending.TryComplete(error.RequestId, error);
+                break;
+            case PreviewPageError pageError:
+                _pendingCloudPages.TryRemove((pageError.RequestId, pageError.PageIndex, pageError.PageGeneration), out _);
+                if (pageError.TimedOut)
+                    RecycleHost(pageError.RequestId, $"PDF page timed out: page={pageError.PageIndex}; generation={pageError.PageGeneration}");
+                _ui.TryEnqueue(() => PageErrorReceived?.Invoke(pageError));
+                break;
+        }
+    }
+
+    private void ReceiveSurface(PreviewSurface surface)
+    {
+        nint localHandle = 0;
+        try
+        {
+            if (surface.TransferId.Length != 32 || !surface.TransferId.All(static c => char.IsAsciiHexDigit(c)))
+                throw new InvalidDataException("RasterHost sent an invalid surface transfer ID.");
+            if (_host is null)
+                throw new InvalidOperationException("RasterHost process is unavailable.");
+            localHandle = WindowsHandleTransfer.DuplicateHandleFromProcess(_host.SafeHandle, surface.SharedHandle);
+            var localSurface = surface with { SharedHandle = localHandle.ToInt64() };
+            if (surface.PageIndex >= 0)
+                _pendingCloudPages.TryRemove((surface.RequestId, surface.PageIndex, surface.PageGeneration), out _);
+            if (!_ui.TryEnqueue(() =>
+                {
+                    Action<PreviewSurface>? handler = SurfaceReceived;
+                    if (handler is null)
+                        CompositionInterop.CloseSharedHandle((nint)localSurface.SharedHandle);
+                    else
+                        handler(localSurface);
+                }))
+            {
+                CompositionInterop.CloseSharedHandle(localHandle);
+                localHandle = 0;
+            }
+            else
+            {
+                localHandle = 0; // UI callback owns the App-local handle.
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", $"surface handle transfer failed: request={surface.RequestId}; {ex.Message}");
+        }
+        finally
+        {
+            if (localHandle != 0)
+                CompositionInterop.CloseSharedHandle(localHandle);
+            _ = ReleaseSurfaceTransferAsync(surface.TransferId);
+        }
+    }
+
+    private async Task ReleaseSurfaceTransferAsync(string transferId)
+    {
+        try
+        {
+            if (_channel is not null && transferId.Length == 32)
+                await _channel.SendAsync(new PreviewSurfaceRelease(transferId));
+        }
+        catch { }
+    }
+
+    /// <summary>Open a file for preview; resolves on PreviewReady, PreviewError, or a watchdog timeout.</summary>
+    public (string RequestId, Task<ControlMessage> Completion) BeginOpen(
+        string path,
+        FileProbe probe,
+        uint targetWidth = 0,
+        uint targetHeight = 0,
+        TimeSpan? timeout = null,
+        bool recycleHostOnCancel = false,
+        bool prepareAnimation = false)
+    {
+        if (_channel is null) throw new InvalidOperationException("RasterHost not connected");
+        var (requestId, completion) = _pending.Begin(timeout ?? PreviewTimeout);
+        if (recycleHostOnCancel)
+            _cloudOriginRequests[requestId] = 0;
+        _ = StopOnTimeoutAsync(completion, requestId);
+        lock (_stateLock)
+        {
+            _activeRequestId = requestId;
+            _activePath = path;
+        }
+        _ = SendOpenAsync(
+            requestId,
+            path,
+            probe,
+            targetWidth,
+            targetHeight,
+            prepareAnimation);
+        return (requestId, completion);
+    }
+
+    public (string RequestId, Task<ControlMessage> Completion) BeginPinnedOpen(
+        string path,
+        FileProbe probe,
+        Microsoft.Win32.SafeHandles.SafeFileHandle pinnedHandle,
+        uint targetWidth,
+        uint targetHeight,
+        bool prepareAnimation = false)
+    {
+        if (_channel is null || _host is null) throw new InvalidOperationException("RasterHost not connected");
+        PipeChannel channel = _channel;
+        Process host = _host;
+        int generation = _generation;
+        var (requestId, completion) = _pending.Begin(PreviewTimeout);
+        long hostHandle;
+        try
+        {
+            hostHandle = WindowsHandleTransfer.DuplicateFileToProcess(pinnedHandle, host.SafeHandle);
+        }
+        catch
+        {
+            _pending.Cancel(requestId);
+            throw;
+        }
+        finally
+        {
+            pinnedHandle.Dispose();
+        }
+        _ = StopOnTimeoutAsync(completion, requestId);
+        lock (_stateLock)
+        {
+            _activeRequestId = requestId;
+            _activePath = path;
+        }
+        Task sendTask = SendOpenHandleAsync(
+            channel,
+            generation,
+            requestId,
+            hostHandle,
+            probe.Size,
+            path,
+            probe,
+            targetWidth,
+            targetHeight,
+            prepareAnimation);
+        RegisterHandleOpenSend(requestId, sendTask);
+        return (requestId, completion);
+    }
+
+    private async Task SendOpenHandleAsync(
+        PipeChannel channel,
+        int generation,
+        string requestId, long sourceHandle, long sourceLength, string logicalPath, FileProbe probe,
+        uint targetWidth, uint targetHeight, bool prepareAnimation)
+    {
+        try
+        {
+            await channel.SendAsync(new PreviewOpenHandle(
+                requestId, sourceHandle, sourceLength, logicalPath, probe)
+            {
+                TargetWidth = targetWidth,
+                TargetHeight = targetHeight,
+                PrepareAnimation = prepareAnimation,
+                HdrDisplayEnabled = HdrDisplayEnabled,
+            });
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", $"RasterHost HANDLE send failed request={requestId}: {ex}");
+            _pending.TryComplete(requestId, PreviewError.InternalFailure(requestId, "send-handle", probe.Extension));
+            if (generation == _generation)
+                RecycleHost(requestId, "handle preview request could not be delivered");
+        }
+    }
+
+    private void RegisterHandleOpenSend(string requestId, Task sendTask)
+    {
+        _handleOpenSends[requestId] = sendTask;
+        _ = TrackHandleOpenSendAsync(requestId, sendTask);
+    }
+
+    private async Task TrackHandleOpenSendAsync(string requestId, Task sendTask)
+    {
+        try
+        {
+            await sendTask;
+        }
+        catch
+        {
+            // SendOpenHandleAsync converts delivery failures to terminal responses and recycles the host.
+        }
+        finally
+        {
+            if (_handleOpenSends.TryGetValue(requestId, out Task? current)
+                && ReferenceEquals(current, sendTask))
+            {
+                _handleOpenSends.TryRemove(requestId, out _);
+            }
+        }
+    }
+
+    private async Task StopOnTimeoutAsync(Task<ControlMessage> completion, string requestId)
+    {
+        try
+        {
+            await completion;
+        }
+        catch (TimeoutException)
+        {
+            RemoveCloudRequestState(requestId);
+            DiagLog.Write("App", $"RasterHost request timed out; terminating host: request={requestId}; gen={_generation}");
+            TryKillHost();
+        }
+        catch
+        {
+            // Terminal errors and cancellation do not require a process restart.
+        }
+    }
+
+    private async Task SendOpenAsync(
+        string requestId,
+        string path,
+        FileProbe probe,
+        uint targetWidth,
+        uint targetHeight,
+        bool prepareAnimation)
+    {
+        try
+        {
+            if (_channel is null) throw new InvalidOperationException("RasterHost not connected");
+            using var trace = DiagLog.TraceScope("App", $"host send open request={requestId}; target={targetWidth}x{targetHeight}; path={path}", 100);
+            await _channel.SendAsync(new PreviewOpen(requestId, path, probe)
+            {
+                TargetWidth = targetWidth,
+                TargetHeight = targetHeight,
+                PrepareAnimation = prepareAnimation,
+                HdrDisplayEnabled = HdrDisplayEnabled,
+            });
+        }
+        catch (Exception ex)
+        {
+            RemoveCloudRequestState(requestId);
+            DiagLog.Write("App", $"RasterHost open send failed request={requestId}: {ex}");
+            _pending.TryComplete(requestId, PreviewError.InternalFailure(requestId, "send-open", probe.Extension));
+        }
+    }
+
+    public async Task ResizeAsync(string requestId, uint width, uint height, double dpi)
+    {
+        if (_channel is not null)
+        {
+            DiagLog.Write("App", $"host send resize request={requestId}; size={width}x{height}; dpi={dpi:0.##}");
+            await _channel.SendAsync(new PreviewResize(requestId, width, height, dpi));
+        }
+    }
+
+    public Task RefreshImageAsync(PreviewImageRefresh refresh, CancellationToken cancellationToken)
+        => ImageRefreshSupported && _channel is { } channel
+            ? channel.SendAsync(refresh, cancellationToken)
+            : Task.CompletedTask;
+
+    public async Task CloseImageRefreshAsync(PreviewImageRefreshClose close)
+    {
+        try
+        {
+            if (ImageRefreshSupported && _channel is { } channel)
+                await channel.SendAsync(close);
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "image refresh release failed: " + ex.Message);
+        }
+    }
+
+    public async Task RenderPageAsync(string requestId, int pageIndex, long pageGeneration, double scale)
+    {
+        var key = (requestId, pageIndex, pageGeneration);
+        bool trackCloudPage = _cloudOriginRequests.ContainsKey(requestId);
+        if (trackCloudPage)
+            _pendingCloudPages[key] = 0;
+        if (_channel is not null)
+        {
+            try
+            {
+                DiagLog.Write("App", $"host send page open request={requestId}; page={pageIndex}; scale={scale:0.###}");
+                await _channel.SendAsync(new PreviewPageOpen(requestId, pageIndex, pageGeneration, scale));
+            }
+            catch
+            {
+                if (trackCloudPage)
+                    _pendingCloudPages.TryRemove(key, out _);
+                throw;
+            }
+        }
+        else if (trackCloudPage)
+            _pendingCloudPages.TryRemove(key, out _);
+    }
+
+    public async Task ClosePageAsync(string requestId, int pageIndex, long pageGeneration)
+    {
+        if (_pendingCloudPages.TryRemove((requestId, pageIndex, pageGeneration), out _))
+        {
+            RecycleHost(requestId, $"cloud PDF page canceled: page={pageIndex}; generation={pageGeneration}");
+            return;
+        }
+        if (_channel is not null)
+        {
+            DiagLog.Write("App", $"host send page close request={requestId}; page={pageIndex}");
+            await _channel.SendAsync(new PreviewPageClose(requestId, pageIndex, pageGeneration));
+        }
+    }
+
+    public async Task<NativeAnimationFrames?> ExtractAnimationFramesAsync(
+        string previewRequestId,
+        uint targetWidth,
+        uint targetHeight,
+        CancellationToken cancellationToken)
+    {
+        PipeChannel channel = _channel ?? throw new InvalidOperationException("RasterHost not connected");
+        Process sourceHost = _host ?? throw new InvalidOperationException("RasterHost process is unavailable");
+        int sourceGeneration = _generation;
+
+        var (requestId, completion) = _pending.Begin(AnimationDecodeTimeout);
+        try
+        {
+            await channel.SendAsync(new PreviewAnimationFramesOpen(
+                requestId, previewRequestId, targetWidth, targetHeight));
+            ControlMessage terminal = await completion.WaitAsync(cancellationToken);
+            if (terminal is PreviewError)
+                return null;
+            if (terminal is not PreviewAnimationFramesReady ready)
+                return null;
+            if (!string.Equals(ready.PreviewRequestId, previewRequestId, StringComparison.Ordinal))
+            {
+                return null;
+            }
+            return sourceGeneration == _generation && !sourceHost.HasExited
+                ? ReadAnimationFrames(ready, sourceHost)
+                : null;
+        }
+        catch (TimeoutException)
+        {
+            // Animation is an optional upgrade over the already-published static first frame.
+            // Cancel only this decode; recycling the host would discard the usable parent preview.
+            DiagLog.Write("App", $"animation frame decode timed out; retaining static preview request={previewRequestId}");
+            return null;
+        }
+        finally
+        {
+            _pending.Cancel(requestId);
+            try
+            {
+                if (sourceGeneration == _generation)
+                    await channel.SendAsync(new PreviewAnimationFramesClose(requestId));
+            }
+            catch { }
+        }
+    }
+
+    public async Task<ImageMetadata?> GetImageMetadataAsync(
+        string previewRequestId,
+        CancellationToken cancellationToken)
+    {
+        PipeChannel channel = _channel ?? throw new InvalidOperationException("RasterHost not connected");
+        Process sourceHost = _host ?? throw new InvalidOperationException("RasterHost process is unavailable");
+        int sourceGeneration = _generation;
+
+        var (requestId, completion) = _pending.Begin(ImageMetadataTimeout);
+        try
+        {
+            await channel.SendAsync(new PreviewImageMetadataOpen(requestId, previewRequestId));
+            ControlMessage terminal = await completion.WaitAsync(cancellationToken);
+            if (terminal is not PreviewImageMetadataReady ready
+                || !string.Equals(ready.PreviewRequestId, previewRequestId, StringComparison.Ordinal)
+                || sourceGeneration != _generation
+                || sourceHost.HasExited)
+            {
+                return null;
+            }
+            return ready.Metadata;
+        }
+        catch (TimeoutException)
+        {
+            DiagLog.Write(
+                "App",
+                $"optional HANDLE image metadata timed out; request={previewRequestId}");
+            return null;
+        }
+        finally
+        {
+            _pending.Cancel(requestId);
+            try
+            {
+                if (sourceGeneration == _generation)
+                    await channel.SendAsync(new PreviewImageMetadataClose(requestId));
+            }
+            catch { }
+        }
+    }
+
+    private static NativeAnimationFrames? ReadAnimationFrames(
+        PreviewAnimationFramesReady ready,
+        Process sourceHost)
+    {
+        const long maxPacketBytes = 64L * 1024 * 1024 + 12;
+        SharedSectionView? view = null;
+        try
+        {
+            if (sourceHost.HasExited
+                || ready.PacketLength <= 12
+                || ready.PacketLength > maxPacketBytes
+                || ready.PacketLength > int.MaxValue
+                || ready.FrameCount is <= 0 or > 120
+                || ready.Width is <= 0 or > 1024
+                || ready.Height is <= 0 or > 1024)
+                return null;
+
+            view = SharedSectionView.DuplicateAndMapReadOnly(
+                sourceHost.SafeHandle,
+                ready.SectionHandle,
+                checked((int)ready.PacketLength));
+            ReadOnlySpan<byte> packet = view.Bytes;
+            uint rawCount = BitConverter.ToUInt32(packet[..4]);
+            bool packetTruncated = (rawCount & 0x8000_0000u) != 0;
+            int count = checked((int)(rawCount & 0x7fff_ffffu));
+            int width = checked((int)BitConverter.ToUInt32(packet[4..8]));
+            int height = checked((int)BitConverter.ToUInt32(packet[8..12]));
+            int frameBytes = checked(width * height * 4);
+            long expectedLength = checked(12L + count * (4L + frameBytes));
+            if (count != ready.FrameCount || width != ready.Width || height != ready.Height
+                || packetTruncated != ready.IsTruncated
+                || expectedLength != packet.Length)
+                return null;
+
+            var frames = new NativeAnimationFrameDescriptor[count];
+            int offset = 12;
+            for (int i = 0; i < count; i++)
+            {
+                int delay = checked((int)BitConverter.ToUInt32(packet.Slice(offset, 4)));
+                offset += 4;
+                if (delay is < 20 or > 1000)
+                    return null;
+                frames[i] = new NativeAnimationFrameDescriptor(delay, offset);
+                offset += frameBytes;
+            }
+            if (offset != packet.Length)
+                return null;
+
+            var result = new NativeAnimationFrames(width, height, view, frames, packetTruncated);
+            view = null;
+            return result;
+        }
+        catch (Exception ex) when (ex is ArgumentException
+            or System.ComponentModel.Win32Exception
+            or InvalidOperationException
+            or IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or OverflowException)
+        {
+            return null;
+        }
+        finally
+        {
+            view?.Dispose();
+        }
+    }
+
+    public async Task CloseAsync(string requestId)
+    {
+        bool wasPending = _pending.Cancel(requestId);
+        bool cloudOrigin = _cloudOriginRequests.TryRemove(requestId, out _);
+        bool recycleHost = wasPending && cloudOrigin;
+        PipeChannel? channel = _channel;
+        int generation = _generation;
+        RemovePendingCloudPages(requestId);
+        lock (_stateLock)
+        {
+            if (_activeRequestId == requestId)
+            {
+                _activeRequestId = null;
+                _activePath = null;
+            }
+        }
+        try
+        {
+            if (_handleOpenSends.TryGetValue(requestId, out Task? openSend))
+            {
+                try { await openSend; }
+                catch { }
+            }
+            if (channel is not null && generation == _generation)
+            {
+                DiagLog.Write("App", $"host send close request={requestId}");
+                await channel.SendAsync(new PreviewClose(requestId));
+            }
+        }
+        finally
+        {
+            if (recycleHost && generation == _generation)
+                RecycleHost(requestId, "cloud preview canceled while opening");
+        }
+    }
+
+    public void SetBackgroundEfficiency(bool enabled)
+    {
+        _backgroundEfficiencyEnabled = enabled;
+        ProcessPowerMode.SetProcessBackgroundEfficiency(_host, enabled, "App");
+    }
+
+    private void OnHostExited(int gen, Process exitedHost)
+    {
+        if (_stopping || gen != _generation) return;
+        string exitCode;
+        try
+        {
+            int code = exitedHost.ExitCode;
+            exitCode = $"{code} (0x{unchecked((uint)code):X8})";
+        }
+        catch (Exception)
+        {
+            exitCode = "unavailable";
+        }
+        (string? requestId, string? path) = GetRestartContext();
+        DiagLog.Write(
+            "App",
+            $"host exited gen={gen}; pid={TryGetProcessId(exitedHost)}; exitCode={exitCode}; request={requestId}; scheduling restart");
+        _handleOpenSends.Clear();
+        ClearCloudRequestState();
+        _pending.FailAll(new InvalidOperationException("RasterHost exited"));
+        _ = RestartAsync(gen, requestId, path);
+    }
+
+    private static string TryGetProcessId(Process process)
+    {
+        try { return process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+        catch (Exception) { return "unavailable"; }
+    }
+
+    private async Task RestartAsync(int gen, string? requestId, string? path)
+    {
+        try
+        {
+            int attempt = Math.Min(Interlocked.Increment(ref _restartAttempts), 5);
+            await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt * attempt));
+            if (!IsRestartContextCurrent(gen, requestId, path)) return;
+
+            _ui.TryEnqueue(() => _ = StartRestartOnUiAsync(gen, requestId, path));
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "host restart scheduling FAILED: " + ex);
+            _pending.FailAll(ex);
+        }
+    }
+
+    private async Task StartRestartOnUiAsync(int gen, string? requestId, string? path)
+    {
+        try
+        {
+            await _startLock.WaitAsync();
+            try
+            {
+                if (!IsConnected && IsRestartContextCurrent(gen, requestId, path))
+                    await StartCoreAsync(CancellationToken.None);
+            }
+            finally
+            {
+                _startLock.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagLog.Write("App", "host restart FAILED: " + ex);
+            _pending.FailAll(ex);
+        }
+    }
+
+    private (string? RequestId, string? Path) GetRestartContext()
+    {
+        lock (_stateLock)
+            return (_activeRequestId, _activePath);
+    }
+
+    private bool IsRestartContextCurrent(int gen, string? requestId, string? path)
+    {
+        if (_stopping || gen != _generation || requestId is null || path is null)
+            return false;
+
+        lock (_stateLock)
+            return _activeRequestId == requestId && string.Equals(_activePath, path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Stop()
+    {
+        DiagLog.Write("App", "host stop");
+        _stopping = true;
+        ++_generation;
+        _handleOpenSends.Clear();
+        ClearCloudRequestState();
+        _ready.TrySetCanceled();
+        _pending.FailAll(new OperationCanceledException("RasterHost stopped"));
+        try { _channel?.Dispose(); } catch { }
+        _channel = null;
+        try { _server?.Dispose(); } catch { }
+        _server = null;
+        TryKillHost();
+    }
+
+    private void TryKillHost()
+    {
+        try { _job?.Dispose(); } catch { }
+        _job = null;
+        try
+        {
+            if (_host is { HasExited: false })
+                _host.Kill();
+        }
+        catch { }
+    }
+
+    private void RecycleHost(string requestId, string reason)
+    {
+        DiagLog.Write("App", $"recycling RasterHost: request={requestId}; reason={reason}");
+        lock (_stateLock)
+        {
+            if (_activeRequestId == requestId)
+            {
+                _activeRequestId = null;
+                _activePath = null;
+            }
+        }
+        ++_generation;
+        _handleOpenSends.Clear();
+        ClearCloudRequestState();
+        _pending.FailAll(new OperationCanceledException(reason));
+        try { _channel?.Dispose(); } catch { }
+        _channel = null;
+        try { _server?.Dispose(); } catch { }
+        _server = null;
+        TryKillHost();
+    }
+
+    private void RemoveCloudRequestState(string requestId)
+    {
+        _cloudOriginRequests.TryRemove(requestId, out _);
+        RemovePendingCloudPages(requestId);
+    }
+
+    private void RemovePendingCloudPages(string requestId)
+    {
+        foreach (var key in _pendingCloudPages.Keys)
+            if (key.RequestId == requestId)
+                _pendingCloudPages.TryRemove(key, out _);
+    }
+
+    private void ClearCloudRequestState()
+    {
+        _cloudOriginRequests.Clear();
+        _pendingCloudPages.Clear();
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetNamedPipeClientProcessId(nint pipe, out uint clientProcessId);
+}

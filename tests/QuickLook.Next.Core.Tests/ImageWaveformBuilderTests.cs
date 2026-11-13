@@ -1,0 +1,44 @@
+using QuickLook.Next.Core;
+using Xunit;
+
+namespace QuickLook.Next.Core.Tests;
+
+public sealed class ImageWaveformBuilderTests
+{
+    [Fact]
+    public void Create_unpremultiplies_channels_and_maps_intensity_to_rows()
+    {
+        byte[] halfAlphaRed = [0, 0, 128, 128];
+
+        var waveform = ImageWaveformBuilder.Create(halfAlphaRed, 1, 1);
+
+        int planeLength = waveform.Width * waveform.Height;
+        Assert.Equal(255, waveform.RgbDensity[0]);
+        Assert.Equal(255, waveform.RgbDensity[planeLength + (waveform.Height - 1) * waveform.Width]);
+        Assert.Equal(255, waveform.RgbDensity[planeLength * 2 + (waveform.Height - 1) * waveform.Width]);
+    }
+
+    [Fact]
+    public void Create_ignores_fully_transparent_pixels()
+    {
+        var waveform = ImageWaveformBuilder.Create([255, 255, 255, 0], 1, 1);
+
+        Assert.All(waveform.RgbDensity, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void Create_reuses_histogram_workspace_without_large_object_heap_allocations()
+    {
+        var pixels = new byte[256 * 256 * 4];
+        _ = ImageWaveformBuilder.Create(pixels, 256, 256);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        ImageWaveform? waveform = null;
+        for (int i = 0; i < 4; i++)
+            waveform = ImageWaveformBuilder.Create(pixels, 256, 256);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.NotNull(waveform);
+        Assert.InRange(allocated, 0, 300_000);
+    }
+}

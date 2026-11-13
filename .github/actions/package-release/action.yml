@@ -1,0 +1,215 @@
+name: Package Release
+description: Build, test, sign, and stage one QuickLook Next release channel.
+
+inputs:
+  channel:
+    description: Release channel, either stable or beta.
+    required: true
+  release-pfx-base64:
+    description: Base64-encoded release signing PFX.
+    required: true
+  release-pfx-password:
+    description: Password for the release signing PFX.
+    required: true
+outputs:
+  version:
+    description: Resolved package version.
+    value: ${{ steps.version.outputs.version }}
+  tag:
+    description: Resolved release tag.
+    value: ${{ steps.version.outputs.tag }}
+  artifact-name:
+    description: Uploaded artifact name.
+    value: ${{ steps.version.outputs.artifact_name }}
+  msix-version:
+    description: Resolved four-part MSIX version.
+    value: ${{ steps.version.outputs.msix_version }}
+runs:
+  using: composite
+  steps:
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.96.0
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
+
+      - name: Cache dependency downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.nuget/packages
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: release-deps-${{ runner.os }}-dotnet-10.0.302-rust-1.96.0-${{ hashFiles('**/packages.lock.json', 'native/Cargo.lock') }}
+          restore-keys: |
+            release-deps-${{ runner.os }}-dotnet-10.0.302-rust-1.96.0-
+
+      - name: Cache cargo-audit
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cargo/bin/cargo-audit.exe
+          key: cargo-audit-${{ runner.os }}-0.22.2
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          . ./tools/checked-invocation.ps1
+          if ("${{ inputs.channel }}" -eq "stable") {
+            $release = @(
+              Invoke-CheckedScript -Path ./tools/resolve-auto-release.ps1 `
+                -FailureMessage "Automatic release resolution failed"
+            )[-1]
+            $version = $release.Version
+            $suffix = ""
+            $previousTag = $release.PreviousTag
+          }
+          elseif ("${{ inputs.channel }}" -eq "beta") {
+            $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+            if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must use semantic X.Y.Z format." }
+            $suffix = "beta.${{ github.run_number }}"
+            $previousTag = (git tag --list "v[0-9]*.[0-9]*.[0-9]*" --sort=-version:refname | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | Select-Object -First 1)
+          }
+          else { throw "Unknown release channel: ${{ inputs.channel }}" }
+          $packageVersion = if ($suffix) { "$version-$suffix" } else { $version }
+          $msixVersion = @(
+            Invoke-CheckedScript -Path ./tools/resolve-formal-msix-version.ps1 `
+              -Arguments @{ VersionPrefix = $version; VersionSuffix = $suffix } `
+              -FailureMessage "Formal MSIX version resolution failed"
+          )[-1]
+          Invoke-CheckedScript -Path ./tools/set-version.ps1 `
+            -Arguments @{ Version = $version } `
+            -FailureMessage "Release version synchronization failed" | Out-Host
+          "version=$packageVersion" >> $env:GITHUB_OUTPUT
+          "tag=v$packageVersion" >> $env:GITHUB_OUTPUT
+          "artifact_name=QuickLook.Next-$packageVersion-win-x64" >> $env:GITHUB_OUTPUT
+          "base_version=$version" >> $env:GITHUB_OUTPUT
+          "suffix=$suffix" >> $env:GITHUB_OUTPUT
+          "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
+          "msix_version=$msixVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Check release target and visible changes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          . ./tools/checked-invocation.ps1
+          Invoke-CheckedScript -Path ./tools/test-release-target.ps1 `
+            -Arguments @{
+              Tag = "${{ steps.version.outputs.tag }}"
+              Commit = "$env:GITHUB_SHA"
+              Repository = "$env:GITHUB_REPOSITORY"
+            } `
+            -FailureMessage "Release target validation failed" | Out-Null
+          $notes = @(
+            Invoke-CheckedScript -Path ./tools/new-release-notes.ps1 `
+              -Arguments @{
+                Version = "${{ steps.version.outputs.version }}"
+                PreviousTag = "${{ steps.version.outputs.previous_tag }}"
+                Repository = "$env:GITHUB_REPOSITORY"
+                OutputPath = "artifacts/release-notes.md"
+              } `
+              -FailureMessage "Release note generation failed"
+          )[-1]
+          $allowEmpty = (git log -1 --format=%b) -match '(?im)^Release-Allow-Empty:\s*true\s*$'
+          if ("${{ inputs.channel }}" -eq "stable" -and $notes.UserVisibleChangeCount -eq 0 -and -not $allowEmpty) {
+            throw "Stable release has no user-visible changes. Add feat/fix/perf, Release-Note, or Release-Allow-Empty: true."
+          }
+
+      - name: Check release signing configuration
+        shell: pwsh
+        env:
+          RELEASE_PFX_BASE64: ${{ inputs.release-pfx-base64 }}
+          RELEASE_PFX_PASSWORD: ${{ inputs.release-pfx-password }}
+        run: |
+          if (-not $env:RELEASE_PFX_BASE64) {
+            throw "QUICKLOOK_RELEASE_PFX_BASE64 is not configured."
+          }
+          if (-not $env:RELEASE_PFX_PASSWORD) {
+            throw "QUICKLOOK_RELEASE_PFX_PASSWORD is not configured."
+          }
+
+      - name: Check NuGet vulnerabilities
+        shell: pwsh
+        run: ./tools/test-nuget-vulnerabilities.ps1
+
+      - name: Audit Rust dependencies
+        shell: pwsh
+        run: |
+          $audit = Get-Command cargo-audit -ErrorAction SilentlyContinue
+          if (-not $audit -or (& cargo audit --version) -notmatch '^cargo-audit 0\.22\.2$') {
+            cargo install cargo-audit --version 0.22.2 --locked --force
+          }
+          cargo audit --file native/Cargo.lock
+
+      - name: Restore release signing certificate
+        shell: pwsh
+        env:
+          RELEASE_PFX_BASE64: ${{ inputs.release-pfx-base64 }}
+        run: |
+          if (-not $env:RELEASE_PFX_BASE64) { throw "QUICKLOOK_RELEASE_PFX_BASE64 is not configured." }
+          New-Item -ItemType Directory -Path .signing -Force | Out-Null
+          [IO.File]::WriteAllBytes('.signing/QuickLook.Next-Release.pfx', [Convert]::FromBase64String($env:RELEASE_PFX_BASE64))
+
+      - name: Test and package signed release
+        shell: pwsh
+        env:
+          RELEASE_PFX_PASSWORD: ${{ inputs.release-pfx-password }}
+        run: |
+          . ./tools/checked-invocation.ps1
+          Invoke-CheckedScript -Path ./tools/release.ps1 `
+            -Arguments @{
+              ExpectedVersion = "${{ steps.version.outputs.base_version }}"
+              VersionPrefix = "${{ steps.version.outputs.base_version }}"
+              VersionSuffix = "${{ steps.version.outputs.suffix }}"
+              CertificatePath = ".signing/QuickLook.Next-Release.pfx"
+              CertificatePassword = "$env:RELEASE_PFX_PASSWORD"
+              SkipSystemImageSmoke = $true
+            } `
+            -FailureMessage "Signed release packaging failed"
+
+      - name: Delete release signing certificate
+        if: always()
+        shell: pwsh
+        run: Remove-Item -LiteralPath '.signing' -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: artifacts/QuickLook.Next-${{ steps.version.outputs.tag }}-win-x64.spdx.json
+
+      - name: Generate release metadata
+        shell: pwsh
+        run: |
+          . ./tools/checked-invocation.ps1
+          Invoke-CheckedScript -Path ./tools/new-release-metadata.ps1 `
+            -Arguments @{
+              Version = "${{ steps.version.outputs.version }}"
+              Tag = "${{ steps.version.outputs.tag }}"
+              Channel = "${{ inputs.channel }}"
+              InstallerPath = "artifacts/QuickLook.Next-Installer-${{ steps.version.outputs.version }}-win-x64.zip"
+              ChecksumPath = "artifacts/QuickLook.Next-Installer-${{ steps.version.outputs.version }}-win-x64.zip.sha256"
+              SbomPath = (Get-Item artifacts/*.spdx.json).FullName
+              Repository = "$env:GITHUB_REPOSITORY"
+              OutputDirectory = "artifacts/release"
+            } `
+            -FailureMessage "Release metadata generation failed"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ${{ steps.version.outputs.artifact_name }}
+          path: |
+            artifacts/QuickLook.Next-Installer-${{ steps.version.outputs.version }}-win-x64.zip
+            artifacts/QuickLook.Next-Installer-${{ steps.version.outputs.version }}-win-x64.zip.sha256
+            artifacts/*.spdx.json
+            artifacts/release-notes.md
+            artifacts/release/*.json
+          if-no-files-found: error

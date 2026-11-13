@@ -1,0 +1,333 @@
+using System.Numerics;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using QuickLook.Next.Core;
+
+namespace QuickLook.Next.App;
+
+internal sealed class RasterPreviewPresenter
+{
+    private const double MinImageZoom = 0.1;
+    private const double MaxImageZoom = 12.0;
+    private const double InfoRailWidth = 246;
+    private const double ToolbarHeight = 162;
+
+    private readonly Border _previewRoot;
+    private readonly Image _fallbackImage;
+    private readonly TextBlock _zoomText;
+    private SpriteVisual? _sprite;
+    private CompositeTransform? _fallbackTransform;
+    private uint _surfaceWidth;
+    private uint _surfaceHeight;
+    private double _zoom = 1.0;
+    private double _panX;
+    private double _panY;
+    private bool _isPanning;
+    private Windows.Foundation.Point _panStart;
+    private double _panStartX;
+    private double _panStartY;
+
+    public RasterPreviewPresenter(Border previewRoot, Image fallbackImage, TextBlock zoomText)
+    {
+        _previewRoot = previewRoot;
+        _fallbackImage = fallbackImage;
+        _zoomText = zoomText;
+    }
+
+    public bool HasSurface => _sprite is not null || _fallbackImage.Source is not null;
+
+    public RasterPreviewResult Render(PreviewReady ready, (double Width, double Height) maxContent)
+    {
+        ResetView();
+
+        double w = ready.PreferredWidth;
+        double h = ready.PreferredHeight;
+        double width;
+        double height;
+        if (w > 0 && h > 0)
+        {
+            double imageMaxWidth = Math.Max(1, maxContent.Width - InfoRailWidth);
+            double imageMaxHeight = Math.Max(1, maxContent.Height - ToolbarHeight);
+            double scale = Math.Min(1.0, Math.Min(imageMaxWidth / w, imageMaxHeight / h));
+            width = w * scale + InfoRailWidth;
+            height = h * scale + ToolbarHeight;
+        }
+        else
+        {
+            width = w + InfoRailWidth;
+            height = h + ToolbarHeight;
+        }
+
+        return new RasterPreviewResult(UiStrings.BuildPreviewStatus(ready.Kind, ready.Title), width, height);
+    }
+
+    public bool AttachSurface(Compositor compositor, PreviewSurface surface, out string? error)
+    {
+        if (!PreviewSurfaceFormats.IsKnown(surface.Format)
+            || (surface.IsHdr is { } declaredHdr
+                && declaredHdr != PreviewSurfaceFormats.IsHdr(surface.Format)))
+        {
+            CompositionInterop.CloseSharedHandle((nint)surface.SharedHandle);
+            error = "surface format is unsupported or inconsistent";
+            return false;
+        }
+
+        var (compSurface, hr) = CompositionInterop.CreateSurfaceForHandle(compositor, (nint)surface.SharedHandle);
+        if (hr < 0 || compSurface is null)
+        {
+            error = $"surface failed 0x{hr:X8}";
+            return false;
+        }
+
+        var brush = compositor.CreateSurfaceBrush(compSurface);
+        brush.Stretch = CompositionStretch.Fill;
+        var sprite = compositor.CreateSpriteVisual();
+        sprite.Brush = brush;
+        ElementCompositionPreview.SetElementChildVisual(_previewRoot, sprite);
+        _fallbackImage.Source = null;
+        _fallbackImage.Visibility = Visibility.Collapsed;
+        _fallbackImage.RenderTransform = null;
+        _fallbackImage.Clip = null;
+        _fallbackTransform = null;
+        DisposeSprite();
+
+        _sprite = sprite;
+        _surfaceWidth = surface.Width;
+        _surfaceHeight = surface.Height;
+        error = null;
+        return true;
+    }
+
+    public bool AttachBitmap(NativeRasterImage raster)
+    {
+        if (raster.Width <= 0 || raster.Height <= 0 || raster.Bgra.Length != raster.Width * raster.Height * 4)
+            return false;
+        ElementCompositionPreview.SetElementChildVisual(_previewRoot, null);
+        DisposeSprite();
+        var bitmap = new WriteableBitmap(raster.Width, raster.Height);
+        using (Stream stream = bitmap.PixelBuffer.AsStream())
+            stream.Write(raster.Bgra);
+        bitmap.Invalidate();
+        _fallbackImage.Source = bitmap;
+        _fallbackImage.Visibility = Visibility.Visible;
+        _fallbackTransform = new CompositeTransform();
+        _fallbackImage.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
+        _fallbackImage.RenderTransform = _fallbackTransform;
+        _surfaceWidth = (uint)raster.Width;
+        _surfaceHeight = (uint)raster.Height;
+        UpdateLayout();
+        return true;
+    }
+
+    public void Clear()
+    {
+        ElementCompositionPreview.SetElementChildVisual(_previewRoot, null);
+        DisposeSprite();
+        _fallbackImage.Source = null;
+        _fallbackImage.Visibility = Visibility.Collapsed;
+        _fallbackImage.RenderTransform = null;
+        _fallbackImage.Clip = null;
+        _fallbackTransform = null;
+        _previewRoot.Clip = null;
+        _surfaceWidth = 0;
+        _surfaceHeight = 0;
+        ResetView();
+    }
+
+    public void UpdateLayout()
+    {
+        if (!HasSurface || _surfaceWidth == 0 || _surfaceHeight == 0)
+            return;
+
+        double availableWidth = Math.Max(1, _previewRoot.ActualWidth);
+        double availableHeight = Math.Max(1, _previewRoot.ActualHeight);
+        _previewRoot.Clip = new RectangleGeometry
+        {
+            Rect = new Windows.Foundation.Rect(0, 0, availableWidth, availableHeight),
+        };
+        double fitScale = Math.Min(availableWidth / _surfaceWidth, availableHeight / _surfaceHeight);
+        double scale = fitScale * _zoom;
+        double scaledWidth = _surfaceWidth * scale;
+        double scaledHeight = _surfaceHeight * scale;
+
+        double maxPanX = Math.Max(0, (scaledWidth - availableWidth) / 2);
+        double maxPanY = Math.Max(0, (scaledHeight - availableHeight) / 2);
+        _panX = Math.Clamp(_panX, -maxPanX, maxPanX);
+        _panY = Math.Clamp(_panY, -maxPanY, maxPanY);
+
+        if (_sprite is not null)
+        {
+            _sprite.Size = new Vector2(_surfaceWidth, _surfaceHeight);
+            _sprite.Scale = new Vector3((float)scale, (float)scale, 1f);
+            _sprite.Offset = new Vector3(
+                (float)Math.Round((availableWidth - scaledWidth) / 2 + _panX),
+                (float)Math.Round((availableHeight - scaledHeight) / 2 + _panY),
+                0);
+        }
+        else if (_fallbackTransform is not null)
+        {
+            _fallbackImage.Clip = new RectangleGeometry
+            {
+                Rect = new Windows.Foundation.Rect(0, 0, availableWidth, availableHeight),
+            };
+            _fallbackTransform.ScaleX = _zoom;
+            _fallbackTransform.ScaleY = _zoom;
+            _fallbackTransform.TranslateX = _panX;
+            _fallbackTransform.TranslateY = _panY;
+        }
+        UpdateZoomLabel();
+    }
+
+    public void UpdateZoomLabel()
+    {
+        if (Math.Abs(_zoom - 1.0) < 0.01)
+        {
+            _zoomText.Text = UiStrings.FitZoom;
+            return;
+        }
+
+        _zoomText.Text = $"{ActualScale() * 100:0}%";
+    }
+
+    public void ResetView()
+    {
+        _zoom = 1.0;
+        _panX = 0;
+        _panY = 0;
+        UpdateLayout();
+        UpdateZoomLabel();
+    }
+
+    public void ZoomBy(double factor)
+    {
+        if (!HasSurface) return;
+        _zoom = Math.Clamp(_zoom * factor, MinImageZoom, MaxImageZoom);
+        UpdateLayout();
+    }
+
+    private void ZoomAt(double factor, Windows.Foundation.Point point)
+    {
+        if (!HasSurface)
+            return;
+
+        double previousZoom = _zoom;
+        _zoom = Math.Clamp(_zoom * factor, MinImageZoom, MaxImageZoom);
+        double appliedFactor = _zoom / previousZoom;
+        double centerX = _previewRoot.ActualWidth / 2;
+        double centerY = _previewRoot.ActualHeight / 2;
+        _panX = (point.X - centerX) * (1 - appliedFactor) + _panX * appliedFactor;
+        _panY = (point.Y - centerY) * (1 - appliedFactor) + _panY * appliedFactor;
+        UpdateLayout();
+    }
+
+    public void SetZoom(double zoom)
+    {
+        if (!HasSurface) return;
+        double fitScale = FitScale();
+        _zoom = Math.Clamp(zoom / Math.Max(0.001, fitScale), MinImageZoom, MaxImageZoom);
+        _panX = 0;
+        _panY = 0;
+        UpdateLayout();
+    }
+
+    public void SetActualSize()
+        => SetZoom(1.0);
+
+    public void PanBy(double x, double y)
+    {
+        if (!HasSurface)
+            return;
+        _panX += x;
+        _panY += y;
+        UpdateLayout();
+    }
+
+    public void OnPointerPressed(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!HasSurface || _previewRoot.Visibility != Visibility.Visible) return;
+        if (!e.GetCurrentPoint(_previewRoot).Properties.IsLeftButtonPressed) return;
+        _isPanning = true;
+        _panStart = e.GetCurrentPoint(_previewRoot).Position;
+        _panStartX = _panX;
+        _panStartY = _panY;
+        _previewRoot.CapturePointer(e.Pointer);
+    }
+
+    public void OnPointerMoved(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_isPanning) return;
+        var p = e.GetCurrentPoint(_previewRoot).Position;
+        _panX = _panStartX + (p.X - _panStart.X);
+        _panY = _panStartY + (p.Y - _panStart.Y);
+        UpdateLayout();
+    }
+
+    public void OnPointerReleased(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_isPanning) return;
+        _isPanning = false;
+        _previewRoot.ReleasePointerCapture(e.Pointer);
+    }
+
+    public void OnPointerCaptureLost()
+        => _isPanning = false;
+
+    public void OnPointerWheelChanged(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!HasSurface || _previewRoot.Visibility != Visibility.Visible)
+            return;
+
+        var point = e.GetCurrentPoint(_previewRoot);
+        int delta = point.Properties.MouseWheelDelta;
+        if (delta == 0) return;
+
+        OnMouseWheel(delta, point.Position);
+        e.Handled = true;
+    }
+
+    public void OnMouseWheel(int delta, Windows.Foundation.Point point)
+    {
+        if (!HasSurface || delta == 0)
+            return;
+        ZoomAt(delta > 0 ? 1.15 : 1.0 / 1.15, point);
+    }
+
+    public void OnDoubleTapped(Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    {
+        if (!HasSurface || _previewRoot.Visibility != Visibility.Visible)
+            return;
+
+        ResetView();
+        e.Handled = true;
+    }
+
+    private void DisposeSprite()
+    {
+        if (_sprite is null)
+            return;
+
+        try { (_sprite.Brush as IDisposable)?.Dispose(); } catch { }
+        try { _sprite.Dispose(); } catch { }
+        _sprite = null;
+    }
+
+    private double FitScale()
+    {
+        if (_surfaceWidth == 0 || _surfaceHeight == 0)
+            return 1.0;
+
+        double availableWidth = Math.Max(1, _previewRoot.ActualWidth);
+        double availableHeight = Math.Max(1, _previewRoot.ActualHeight);
+        return Math.Min(availableWidth / _surfaceWidth, availableHeight / _surfaceHeight);
+    }
+
+    private double ActualScale()
+        => FitScale() * _zoom;
+}
+
+internal readonly record struct RasterPreviewResult(string Status, double Width, double Height);
