@@ -4,6 +4,26 @@ This note is a reviewer-facing status page. It records what has already been
 hardened, how to verify it locally, and which limitations are intentionally
 left visible instead of hidden behind vague TODOs.
 
+## Local maintenance snapshot: 2026-11-13
+
+The local functional baseline is `38271f4`, built on the downloaded `1.0.4`
+snapshot. The owner has accepted the reported desktop/Explorer selection,
+workbook row-height/sheet-navigation, oversized-file prompt, and blank-cell
+scenarios. Wider interaction cases remain in the
+[regression checklist](desktop-regression-checklist.md).
+
+The latest code checks passed 390 Rust tests (one pre-existing ignored) and
+557 managed tests; Release builds had zero warnings/errors, and format, Clippy,
+and the full architecture `-SkipDist` gate passed. The subsequent documentation
+organization did not rerun these code checks. The launcher and rollback index
+are in [fork-maintenance.md](fork-maintenance.md).
+
+The dated local sections below retain per-change evidence. Later upstream
+sections were inherited with the source snapshot: their commit IDs, release
+claims, and artifact paths are historical records, not local verification or
+publication by this fork. This local repository has no configured remote and
+has not published or installed an MSIX package.
+
 ## 2026-11-13 local fork: desktop and Explorer tabs
 
 This local fork starts from the downloaded `1.0.4` source snapshot, preserved in
@@ -37,9 +57,9 @@ selection. The desktop COM probe found the actual desktop view. A later probe
 created and selected a temporary desktop TXT, but `MinimizeAll` did not make the
 desktop foreground; the foreground HWND differed from the inspected desktop root
 and native selection returned an empty result. The sample was removed and prior
-selection/windows restored. This did
-not exercise the native desktop route; desktop Space-key behavior remains
-unverified.
+selection/windows restored. This did not exercise the native desktop route;
+the automated probe did not establish desktop Space-key behavior. Owner
+acceptance is recorded below.
 
 Using the existing release-payload helpers, 185 files were assembled and their
 hashes verified in `artifacts/local-preview-20261113/`. The App and its restricted
@@ -54,7 +74,8 @@ test-driver issues; the chooser was dismissed without changing file associations
 These are focused smoke results, not completion of the repeated keyboard/tab,
 empty-selection App, desktop, or wider manual cases in
 [desktop-regression-checklist.md](desktop-regression-checklist.md). Those rows
-remain pending. No MSIX packaging, installation, or remote publication was done.
+retain their separate acceptance status. No MSIX packaging, installation, or
+remote publication was done.
 
 The owner subsequently confirmed that desktop and tabbed Explorer previews work
 in the local build. This is owner acceptance of those two reported scenarios;
@@ -179,8 +200,10 @@ and rebuilt DLLs without printing or saving cell content. The fourth sheet's
 G4:I8 region changed from zero retained cells to all 15 empty cells with positive
 geometry. Its total cell count changed from 37 to 63, including 26 empty cells;
 all four sheets remain represented. Source length/write time were unchanged.
-The workbook and its private contents are not committed. Interactive acceptance
-remains with the owner.
+The workbook and its private contents are not committed. The owner subsequently
+confirmed the blank-cell fix passes the reported scenario. Sheet-switching,
+palette, and other boundary combinations remain separate checklist items;
+interactive acceptance continues to belong to the owner.
 
 The pinned native MSBuild build and managed Release build passed with zero
 warnings/errors. Format/Clippy passed; Rust tests passed 390 with one existing
@@ -191,9 +214,10 @@ copy hashes verified in `artifacts/local-preview-20261113-workbook-blanks/`;
 the stable local launcher now points there. Native DLL SHA-256:
 `3B2FDA3A7E2C4BFAD201F2717F8789521837E9F085AFBAD87B908D6DCABD0DFA`.
 
-## Current Verification And Priority
+## Upstream historical verification and priority: 2026-10-25
 
-The active work is tracked in [`implementation-todo.md`](implementation-todo.md).
+The upstream work at that time was tracked in
+[`implementation-todo.md`](implementation-todo.md).
 The 2026-10-25 review follow-up comprises six focused implementation/tooling
 commits, `015a0d2` through `5f9edee`, followed by a manual regression checklist
 in `0f17192`. Release built with zero warnings/errors using pinned SDK

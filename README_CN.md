@@ -2,6 +2,9 @@
 
 [项目网站](https://sherlockchiang.github.io/QuickLook.Next/) · [English](README.md)
 
+> 本地维护版：已验收修复、开发命令、测试版和回退入口见[本地维护指南](docs/fork-maintenance.md)。
+> 下方商店及 GitHub 下载链接指向上游版本。
+
 **在 Windows 桌面或文件资源管理器中选中文件，按一下空格键，立即预览。**
 
 [![最新版本](https://img.shields.io/github/v/release/SherlockChiang/QuickLook.Next?display_name=tag&sort=semver)](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)

@@ -2,6 +2,10 @@
 
 [Project website](https://sherlockchiang.github.io/QuickLook.Next/) · [简体中文](README_CN.md)
 
+> Local maintenance copy: see the [maintenance guide (中文)](docs/fork-maintenance.md)
+> for accepted fixes, development commands, and local build/rollback locations.
+> Store and GitHub download links below refer to upstream distributions.
+
 **Select a file on the Windows desktop or in File Explorer. Press Space. See it instantly.**
 
 [![Latest release](https://img.shields.io/github/v/release/SherlockChiang/QuickLook.Next?display_name=tag&sort=semver)](https://github.com/SherlockChiang/QuickLook.Next/releases/latest)

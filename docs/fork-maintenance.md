@@ -1,94 +1,102 @@
-# 个人维护起步
+# 本地维护指南
 
-本页记录这份下载源码的本地维护流程。架构与安全约束仍以
-[`../AGENTS.md`](../AGENTS.md)、[`../CONTRIBUTING.md`](../CONTRIBUTING.md)
-及 ADR 为准。
+这份源码从下载的 `1.0.4` 快照开始维护。本页提供目录、开发和回退入口；
+实现与验证状态以 [review-readiness.md](review-readiness.md) 为准，贡献流程见
+[CONTRIBUTING.md](../CONTRIBUTING.md)，架构规范见 [AGENTS.md](../AGENTS.md)。
 
-## 源码与版本管理
+## 当前使用入口
 
-- 下载包内的 `VERSION` 为 `1.0.4`，原始文件已保存到本地 Git 提交
-  `396fbbf`。这是下载快照的备份，不代表已确定其上游提交号。
-- 第一轮修改位于 `fix/desktop-and-explorer-tabs` 分支；Excel 预览修复位于
-  基于它创建的 `fix/workbook-preview-layout` 分支。
-- 大文件超限提示在其后的 `fix/workbook-preview-limits` 分支维护。
-- 空白单元格显示修复在其后的 `fix/workbook-empty-cells` 分支维护。
-- 原有 `AGENTS.md` 保持不变。构建产物、工具下载和测试证据放在已忽略的
-  `artifacts/`，不提交证书、日志及私人样本。
-- 建立自己的 GitHub Fork 后，应从 Fork 克隆保留上游历史的正式工作副本，
-  再迁移本轮修复。当前本地仓库尚未关联远程，也没有发布任何代码。
+- 双击本机的 `artifacts/Start-MyQuickLook.cmd`，当前启动
+  `artifacts/local-preview-20261113-workbook-blanks/`。先退出其他 QuickLook 实例。
+- 当前功能源码为 `38271f4`，位于 `fix/workbook-empty-cells`；下表修复依次叠加。
+- 2026-11-13，用户已确认全部已报告核心场景通过。反复切换、无选中项、主题等
+  组合场景仍按[交互回归清单](desktop-regression-checklist.md)单独记录。
+- 最新代码验证基线：Rust 390 项通过、1 项原有忽略；.NET 557 项通过；Release
+  构建零警告、零错误；格式、Clippy 和完整架构检查通过。本次文档整理未重跑这些检查。
 
-查看修改及原始备份：
+## 已完成修复
 
-```powershell
-git status --short --branch
-git diff
-git diff main...HEAD
-git show 396fbbf:VERSION
-```
+| 问题 | 核心验收结果 | 修复提交 / 保留分支 |
+|---|---|---|
+| 桌面空格预览、Explorer 多标签页 | 桌面可预览，读取当前标签页选中项 | `f574bf7` / `fix/desktop-and-explorer-tabs` |
+| Excel 行高、工作表布局 | 宽表正常行高并横向滚动，底部 Sheet 切换 | `008b0b3` / `fix/workbook-preview-layout` |
+| Excel 超限提示 | 显示“文件过大，无法预览”和打开文件入口 | `ac931f4` / `fix/workbook-preview-limits` |
+| Excel 空白区域缺失 | 保留实际空白格、空白合并区域的网格及已有样式 | `38271f4` / `fix/workbook-empty-cells` |
 
-## 本机开发入口
+Excel 仍按现有预算预览前 48 行、32 列、最多 6 个工作表。工作表和共享字符串
+XML 各有 16 MiB 的解压后大小限制；不以“五万行”作为拒绝阈值。预览不是完整的
+Excel 编辑器，查看全部数据请打开原文件。私人样本未提交到仓库。
 
-本次准备了固定版本 .NET SDK `10.0.302`、Rust `1.96.0`、PowerShell `7.5.4`
-和本地 Windows SDK。`.NET`、PowerShell 及 Windows SDK 位于
-`artifacts/tools/`，没有修改项目的工具链版本与依赖锁文件。
+## 项目目录与文档
 
-在仓库根目录打开 PowerShell，先载入本机生成的环境脚本，再使用原有入口：
+| 路径 | 用途 |
+|---|---|
+| `native/quicklook_next_native/` | Rust 格式探测、受限解析和结构化预览模型 |
+| `src/` | WinUI App、Core、通信契约及三个隔离宿主 |
+| `tests/` | Core 单元测试和宿主集成测试；Rust 测试随原生模块维护 |
+| `testdata/` | 合成或获准分发的回归样本 |
+| `tools/`、`packaging/` | 构建、检查、发布脚本与打包配置 |
+| `docs/` | 实现状态、验收清单、ADRs、格式说明及后续计划 |
+| `plugins/` | 旧插件参考源码，不进入默认发现和发布路径 |
+| `website/` | 上游产品网站 |
+| `artifacts/` | 本机工具、测试包和证据；已被 Git 忽略 |
+
+[review-readiness.md](review-readiness.md) 区分本地修复与上游历史验证，
+[docs/adr/README.md](adr/README.md) 索引已接受的架构决策，
+[handle-based-preview-inputs.md](handle-based-preview-inputs.md) 记录 HANDLE/ABI 细节，
+[implementation-todo.md](implementation-todo.md) 保留上游任务背景。
+
+## 本机开发与验证
+
+在仓库根目录打开 PowerShell：
 
 ```powershell
 . .\artifacts\tools\Enter-Dev.ps1
+pwsh -NoProfile -File .\tools\doctor.ps1
 pwsh -NoProfile -File .\build.ps1 -Test
 ```
 
-环境脚本只对当前进程设置工具路径和编译器搜索路径，不是随仓库分发的文件。
-换电脑时按 `CONTRIBUTING.md` 准备环境。Release App 运行时需要同次构建的
-三个宿主，不能只复制或单独启动 App 编译目录。
+本机脚本为当前进程配置固定版本 .NET SDK `10.0.302`、Rust `1.96.0`、
+PowerShell `7.5.4`、MSVC 和 Windows SDK；换电脑时按 `CONTRIBUTING.md` 准备环境。
+原生 DLL 单独构建须走 MSBuild：
 
-本次使用项目已有的 `tools/release-payload.ps1` 组装了本地测试目录
-`artifacts/local-preview-20261113-workbook-blanks/`，包含 App、宿主、许可及第三方声明，并核对
-了复制前后的文件哈希。退出其他 QuickLook 实例后，双击
-`artifacts/Start-MyQuickLook.cmd` 启动。本地入口与测试目录均不提交到 Git。
-重新编译后需要重新组装测试目录；它不会自动使用新的编译输出。
-原来的 `artifacts/local-preview-20261113/` 保留为第一轮修复的回退版本。
-`artifacts/local-preview-20261113-workbook/` 保留为工作表布局修复的回退版本。
-`artifacts/local-preview-20261113-workbook-limits/` 保留为超限提示修复的回退版本。
+```powershell
+dotnet msbuild native\QuickLook.Next.Native.proj -target:Build -verbosity:minimal
+```
 
-## 第一轮问题与验收
+按改动先跑针对性回归，再跑 `AGENTS.md` 中的相关完整检查。
+重新编译不会更新独立测试包，需重新组装；现有本机组装脚本为
+`artifacts/assemble-workbook-blank-cells-preview.ps1`，使用项目的
+`tools/release-payload.ps1` 并验证复制哈希。App 必须与同次构建的三个宿主一起运行。
+实现、构建与自动化检查由维护者完成，实际界面由用户验收。
 
-1. **桌面无法预览**：原有快捷键过滤只接受普通 Explorer 窗口，选中项枚举
-   也没有使用桌面 Shell 接口。
-2. **多标签页读取首标签页**：不同标签页共用主窗口句柄；只匹配主窗口会读到
-   第一个 COM 对象。需进一步匹配当前标签页的 Shell 浏览器句柄。
+## 版本管理与回退
 
-自动化测试、原生接口实测、完整 App 界面验收分别记录，不互相替代。
-第一轮 Release 构建为零警告、零错误，371 项 Rust 测试、546 项 .NET 测试及完整
-架构检查已通过；同窗口两个标签页的 TXT 空格预览已实测标题、正文正确。
-用户已确认桌面空格预览及多标签页生效；反复切换和当前页无选中项的完整界面
-验收仍独立记录。第一轮证据见
-[`review-readiness.md`](review-readiness.md#2026-11-13-local-fork-desktop-and-explorer-tabs)。
+`main` 保留原始快照 `396fbbf`，对应上游提交尚未确定。当前只有本地 Git，
+没有关联远程、建立 GitHub Fork 或发布个人版本。
 
-## Excel 预览修复与验收
+```powershell
+git status --short --branch
+git log --oneline --decorate -6
+git diff main...HEAD
+```
 
-第二轮针对宽 Excel 行高被压缩和多个工作表堆叠：保持表格正常比例，以横向
-滚动查看宽表，工作表改为底部单页切换，并使用文件中的名称和顺序。
-375 项 Rust 测试、554 项 .NET 测试和 Release 构建已通过。合成宽表的原生
-接口实测保留 15 磅行高、中文名称、非连续编号和空白工作表。
-用户已确认本轮 Excel 预览可用。后续由维护者完成实现、构建及自动化检查，
-实际界面和使用效果由用户验收，不再自动操作用户桌面。详细记录见
-[`review-readiness.md`](review-readiness.md#2026-11-13-local-fork-readable-workbook-preview-and-sheet-navigation)。
+以下测试目录与同名 `.manifest.json` 均保留，不移动或删除：
 
-## 后续维护
+| `artifacts/` 下的目录 | 版本用途 |
+|---|---|
+| `local-preview-20261113/` | 桌面与多标签页修复 |
+| `local-preview-20261113-workbook/` | Excel 行高与 Sheet 切换 |
+| `local-preview-20261113-workbook-limits/` | 超限友好提示 |
+| `local-preview-20261113-workbook-blanks/` | 当前使用版，含空白格修复 |
 
-大文件提示修复将解压后超过上限的工作表、共享字符串等 XML 与空白内容区分，
-显示“文件过大，无法预览”，可点击“打开文件”查看完整数据。工作表及共享字符串
-各保留 16 MiB 的解压后大小限制，不以五万行作为拒绝阈值；体积较小的五万行
-工作簿仍可预览前 48 行。已只读确认用户报告的文件内部工作表约 69.5 MiB，
-触发该限制；新原生接口对原文件返回明确的超限状态，用户已确认提示生效。
+需要回退时，退出正在运行的实例，再从对应目录启动 `QuickLook.Next.App.exe`；
+保持目录内文件完整。详细本地产物索引见本机 `artifacts/README.md`。
 
-空白格修复保留表格中没有文字的单元格及空白合并区域，避免右侧待填写区域
-失去网格。只保留文件中实际存在的单元格和合并区域，仍限制在原有的预览范围内。
-用户原文件只读检查，私人内容不提交到仓库；本轮界面效果仍由用户验收。
+## 后续维护顺序
 
-交互操作见 [`desktop-regression-checklist.md`](desktop-regression-checklist.md)。
-每个后续问题记录复现步骤、预期/实际结果、最小测试样本和验证结果，完成一个
-问题后再提交一个范围清晰的修复。正式分发前单独处理个人版本名称、包身份、
-签名及更新来源，并保留仓库要求的许可和第三方声明。
+1. 新问题先记录操作、预期、实际结果，优先制作不含个人数据的最小复现样本。
+2. 一个问题一个修复提交，同步更新实现状态、回归清单和本地测试包，再由用户验收。
+3. 补充已有清单中的反复切换、取消及错误恢复等边界场景，未测项保留待验证。
+4. 需要异地备份或跟随上游时，从自己的 GitHub Fork 克隆正式副本，再迁移本地修复。
+5. 正式分发前明确个人版本名称、包身份、签名和更新来源，保留许可与第三方声明。
