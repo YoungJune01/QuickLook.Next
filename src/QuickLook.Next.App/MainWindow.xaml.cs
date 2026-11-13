@@ -282,7 +282,7 @@ public sealed partial class MainWindow : Window
             PdfDocumentStatePanel,
             TextPreviewContainer,
             TablePreviewContainer,
-            OfficeScrollViewer,
+            OfficePreviewContainer,
             OfficeCoveragePanel,
             MediaPreviewElement,
             ListingPanel,
@@ -321,6 +321,7 @@ public sealed partial class MainWindow : Window
             OfficePagesPanel,
             OfficeCoveragePanel,
             OfficeCoverageText,
+            OfficeSheetTabs,
             () => (IsHighContrast, _uiSettings.GetColorValue(UIColorType.Background), _uiSettings.GetColorValue(UIColorType.Foreground)),
             LoadOfficeLayoutImageAsync);
         _rasterPresenter = new RasterPreviewPresenter(PreviewRoot, RasterFallbackImage, ImageZoomText);

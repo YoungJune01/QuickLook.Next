@@ -56,6 +56,57 @@ empty-selection App, desktop, or wider manual cases in
 [desktop-regression-checklist.md](desktop-regression-checklist.md). Those rows
 remain pending. No MSIX packaging, installation, or remote publication was done.
 
+The owner subsequently confirmed that desktop and tabbed Explorer previews work
+in the local build. This is owner acceptance of those two reported scenarios;
+the wider repeated-input and accessibility checklist is still separate.
+
+## 2026-11-13 local fork: readable workbook preview and sheet navigation
+
+Workbook geometry previously shrank to fit the window width while cell fonts
+remained unscaled. Wide workbooks could therefore have rows shorter than one
+line of text. Workbook rendering now uses normal geometry and horizontal
+scrolling, with reduced vertical cell padding. Slides and documents retain their
+existing fit behavior, covered by the shared presentation-policy tests.
+
+A stable XAML single-selection footer displays the available worksheet names.
+Only the active sheet is attached/materialized; changing sheets releases the
+inactive view and returns the content scroller to its origin. The footer remains
+outside that scroller. Workbook grids align to the upper left, and palette
+refresh preserves the selected sheet. Other preview kinds hide the entire Office
+container, including its selector.
+
+The focused Rust workbook metadata module resolves names and order through
+`xl/workbook.xml` and its archive relationships, including empty sheets and
+nonsequential worksheet parts. Titles are capped at 128 characters and worksheet
+targets stay under `xl/worksheets/`; malformed metadata does not select an
+unrelated numbered worksheet. The existing decompression/cancellation budgets,
+six-sheet limit, retained HANDLE input, and bounded image follow-ups remain.
+Minimal legacy producer output without workbook metadata keeps numbered names.
+
+The pinned native MSBuild build and managed Release build passed with zero
+warnings/errors. Format/Clippy and all 375 Rust tests passed, with one pre-existing
+ignored corpus test. All 554 managed tests passed (Core 420, ParserHost 49,
+RasterHost 72, ShellBroker 13). Changed C# whitespace and localization checks
+passed. The UI guard now verifies the stable footer's container and the active
+sheet materialization path. The performance guard follows the six-sheet bound
+into the focused metadata module and checks its executable regression coverage;
+the image and sheet bounds were not raised. The full architecture `-SkipDist`
+gate also passed.
+
+A live exported native probe over a synthetic 32-column workbook preserved the
+15-point row as 20 DIP, all 1,536 retained cells, Chinese worksheet names/order,
+and an empty third sheet. The 185-file local payload was reassembled, its hashes
+verified, and App/host startup checked. Native DLL SHA-256:
+`48AFAD63935DD92DD303903472A6157EE8CA80E81CBB1A1C0F763B8BD7601C2A`.
+
+GUI automation could not acquire Explorer foreground focus, so it did not
+establish rendered-pixel acceptance. The owner subsequently tested the update
+and confirmed the requested Excel improvements work. Repeated switching, palette,
+empty-sheet, and other boundary cases remain separate checklist items. Future
+interactive acceptance belongs to the owner; the agent handles implementation,
+builds, and automated checks without operating the owner's desktop. The test
+workbook is synthetic; no personal workbook data is included in the repository.
+
 ## Current Verification And Priority
 
 The active work is tracked in [`implementation-todo.md`](implementation-todo.md).

@@ -33,6 +33,7 @@ internal sealed class OfficePreviewPresenter
     private readonly StackPanel _pagesPanel;
     private readonly Border _coveragePanel;
     private readonly TextBlock _coverageText;
+    private readonly ListView _sheetTabs;
     private readonly Func<(bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground)> _getHighContrast;
     private readonly Func<string, string, int, int, CancellationToken, Task<NativeRasterImage?>>? _loadOfficeImage;
     private readonly List<PageSlot> _pageSlots = [];
@@ -48,6 +49,7 @@ internal sealed class OfficePreviewPresenter
         StackPanel pagesPanel,
         Border coveragePanel,
         TextBlock coverageText,
+        ListView sheetTabs,
         Func<(bool Enabled, Windows.UI.Color Background, Windows.UI.Color Foreground)> getHighContrast,
         Func<string, string, int, int, CancellationToken, Task<NativeRasterImage?>>? loadOfficeImage = null)
     {
@@ -55,6 +57,8 @@ internal sealed class OfficePreviewPresenter
         _pagesPanel = pagesPanel;
         _coveragePanel = coveragePanel;
         _coverageText = coverageText;
+        _sheetTabs = sheetTabs;
+        _sheetTabs.SelectionChanged += (_, _) => SelectSheet(_sheetTabs.SelectedIndex);
         _getHighContrast = getHighContrast;
         _loadOfficeImage = loadOfficeImage;
         _scrollViewer.ViewChanged += (_, _) => QueueVirtualPageUpdate();
@@ -78,6 +82,7 @@ internal sealed class OfficePreviewPresenter
 
         _pagesPanel.Children.Clear();
         _pageSlots.Clear();
+        _sheetTabs.ItemsSource = null;
         _scrollViewer.ChangeView(0, 0, null, true);
 
         double maxPageWidth = Math.Max(360, maxContent.Width - 72);
@@ -89,6 +94,9 @@ internal sealed class OfficePreviewPresenter
                 BuildImageDecodeTargets(layout, maxPageWidth));
         }
         int renderedPageCount = coverage.RepresentedPages;
+        bool isWorkbook = layout.LayoutKind.Equals("workbook", StringComparison.OrdinalIgnoreCase);
+        _pagesPanel.HorizontalAlignment = isWorkbook ? HorizontalAlignment.Left : HorizontalAlignment.Center;
+        _sheetTabs.Visibility = isWorkbook && renderedPageCount > 0 ? Visibility.Visible : Visibility.Collapsed;
         foreach ((OfficePage page, int index) in layout.Pages
                      .Take(renderedPageCount)
                      .Select((page, index) => (page, index)))
@@ -96,9 +104,17 @@ internal sealed class OfficePreviewPresenter
             Border host = CreatePageHost(layout, page, maxPageWidth, index, coverage.TotalPages);
             var slot = new PageSlot(page, host);
             _pageSlots.Add(slot);
-            _pagesPanel.Children.Add(host);
-            if (index < 2)
-                Materialize(slot);
+            if (!isWorkbook)
+            {
+                _pagesPanel.Children.Add(host);
+                if (index < 2)
+                    Materialize(slot);
+            }
+        }
+        if (isWorkbook && _pageSlots.Count > 0)
+        {
+            _sheetTabs.ItemsSource = _pageSlots.Select(slot => slot.Page.Title).ToArray();
+            _sheetTabs.SelectedIndex = 0;
         }
         QueueVirtualPageUpdate();
 
@@ -106,18 +122,25 @@ internal sealed class OfficePreviewPresenter
         double firstWidth = first?.Width > 0 ? first.Width : layout.Width;
         double firstHeight = first?.Height > 0 ? first.Height : layout.Height;
         double scale = LayoutScale(layout, firstWidth, maxPageWidth);
-        bool isWorkbook = layout.LayoutKind.Equals("workbook", StringComparison.OrdinalIgnoreCase);
         double headerWidth = isWorkbook ? 42 : 0;
         double headerHeight = isWorkbook ? 24 : 0;
         double contentWidth = Math.Min(maxContent.Width, firstWidth * scale + headerWidth + 64);
-        double contentHeight = Math.Min(maxContent.Height, firstHeight * scale + headerHeight + 112);
+        double contentHeight = Math.Min(maxContent.Height, firstHeight * scale + headerHeight + 112 + (isWorkbook ? 44 : 0));
         return new OfficePreviewResult(UiStrings.BuildPreviewStatus(ready.Kind, ready.Title), contentWidth, contentHeight);
     }
 
     public void RefreshPalette()
     {
         if (_lastReady is not null)
+        {
+            int selectedSheet = _sheetTabs.SelectedIndex;
+            double horizontalOffset = _scrollViewer.HorizontalOffset;
+            double verticalOffset = _scrollViewer.VerticalOffset;
             Render(_lastReady, _lastMaxContent);
+            if ((uint)selectedSheet < (uint)_pageSlots.Count && _sheetTabs.Visibility == Visibility.Visible)
+                _sheetTabs.SelectedIndex = selectedSheet;
+            _scrollViewer.ChangeView(horizontalOffset, verticalOffset, null, true);
+        }
     }
 
     public void Clear()
@@ -130,7 +153,27 @@ internal sealed class OfficePreviewPresenter
         _virtualUpdateQueued = false;
         _pageSlots.Clear();
         _pagesPanel.Children.Clear();
+        _sheetTabs.ItemsSource = null;
+        _sheetTabs.Visibility = Visibility.Collapsed;
         HideCoverage();
+    }
+
+    private void SelectSheet(int index)
+    {
+        if (_layout is null || !_layout.LayoutKind.Equals("workbook", StringComparison.OrdinalIgnoreCase)
+            || (uint)index >= (uint)_pageSlots.Count)
+            return;
+
+        // Keep the selector outside the scrolling grid; only the active sheet owns a
+        // materialized view. Reset scrolling before revealing the replacement sheet.
+        _pagesPanel.Children.Clear();
+        foreach (PageSlot slot in _pageSlots)
+            slot.Host.Child = null;
+        PageSlot selected = _pageSlots[index];
+        _pagesPanel.Children.Add(selected.Host);
+        Materialize(selected);
+        _scrollViewer.ChangeView(0, 0, null, true);
+        QueueVirtualPageUpdate();
     }
 
     private void ShowCoverage(string layoutKind, OfficeCoverage coverage)
@@ -171,8 +214,8 @@ internal sealed class OfficePreviewPresenter
         var host = new Border
         {
             Width = viewWidth,
-            Height = viewHeight + 24,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            Height = viewHeight + (isWorkbook ? 0 : 24),
+            HorizontalAlignment = isWorkbook ? HorizontalAlignment.Left : HorizontalAlignment.Center,
         };
         string format = layout.LayoutKind.ToLowerInvariant() switch
         {
@@ -214,6 +257,9 @@ internal sealed class OfficePreviewPresenter
         bool morePagesPending = false;
         foreach (PageSlot slot in _pageSlots)
         {
+            if (_layout.LayoutKind.Equals("workbook", StringComparison.OrdinalIgnoreCase)
+                && !ReferenceEquals(slot.Host.Parent, _pagesPanel))
+                continue;
             bool nearby;
             try
             {
@@ -261,13 +307,16 @@ internal sealed class OfficePreviewPresenter
         double viewHeight = contentHeight + columnHeaderHeight;
 
         var stack = new StackPanel { Spacing = 6 };
-        stack.Children.Add(new TextBlock
+        if (!isWorkbook)
         {
-            Text = page.Title,
-            FontSize = 12,
-            Foreground = ForegroundBrush(UiGrayBrush),
-            Margin = new Thickness(2, 0, 0, 0),
-        });
+            stack.Children.Add(new TextBlock
+            {
+                Text = page.Title,
+                FontSize = 12,
+                Foreground = ForegroundBrush(UiGrayBrush),
+                Margin = new Thickness(2, 0, 0, 0),
+            });
+        }
 
         SolidColorBrush pageBrush = DocumentBrush(page.BackgroundColor) ?? BackgroundBrush(OfficeWhiteBrush);
         var canvas = new Canvas
@@ -302,12 +351,7 @@ internal sealed class OfficePreviewPresenter
     }
 
     private static double LayoutScale(OfficeLayout layout, double pageWidth, double maxPageWidth)
-    {
-        double target = layout.LayoutKind.Equals("presentation", StringComparison.OrdinalIgnoreCase)
-            ? Math.Min(1.0, maxPageWidth / Math.Max(1, pageWidth))
-            : Math.Min(1.0, maxPageWidth / Math.Max(1, pageWidth));
-        return Math.Clamp(target, 0.35, 1.0);
-    }
+        => OfficeLayoutPresentationPolicy.Scale(layout.LayoutKind, pageWidth, maxPageWidth);
 
     private void AddWorkbookHeaders(
         Canvas canvas,
@@ -424,7 +468,7 @@ internal sealed class OfficePreviewPresenter
             FontWeight = new Windows.UI.Text.FontWeight { Weight = cell.Bold ? (ushort)600 : (ushort)400 },
             FontStyle = cell.Italic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal,
             MaxWidth = Math.Max(4, width - 10),
-            MaxHeight = Math.Max(4, height - 4),
+            MaxHeight = Math.Max(4, height - 2),
             TextWrapping = cell.WrapText ? TextWrapping.Wrap : TextWrapping.NoWrap,
             TextTrimming = TextTrimming.WordEllipsis,
             Foreground = DocumentBrush(cell.TextColor) ?? ForegroundBrush(OfficeBlackBrush),
@@ -443,7 +487,7 @@ internal sealed class OfficePreviewPresenter
             Height = height,
             BorderBrush = ForegroundBrush(OfficeCellBorderBrush),
             BorderThickness = merged ? new Thickness(1.2) : new Thickness(0, 0, 1, 1),
-            Padding = new Thickness(5, 2, 5, 2),
+            Padding = new Thickness(5, 0, 5, 0),
             Background = DocumentBrush(cell.FillColor)
                 ?? (merged ? new SolidColorBrush(ColorHelper.FromArgb(255, 252, 253, 255)) : null),
             Child = textBlock,

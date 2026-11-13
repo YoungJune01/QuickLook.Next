@@ -647,11 +647,17 @@
                                 Spacing="4" />
                 </ScrollViewer>
             </Grid>
-            <ScrollViewer x:Name="OfficeScrollViewer"
+            <Grid x:Name="OfficePreviewContainer"
+                  Visibility="Collapsed"
+                  Margin="14,0,14,14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ScrollViewer x:Name="OfficeScrollViewer"
                           x:Uid="OfficeScrollViewer"
-                          Visibility="Collapsed"
-                          Margin="14,0,14,14"
                           Padding="20,58,20,20"
+                          HorizontalScrollMode="Enabled"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
                           Background="{ThemeResource PreviewSurfaceBrush}"
@@ -662,7 +668,46 @@
                 <StackPanel x:Name="OfficePagesPanel"
                             HorizontalAlignment="Center"
                             Spacing="18" />
-            </ScrollViewer>
+                </ScrollViewer>
+                <ListView x:Name="OfficeSheetTabs"
+                          x:Uid="OfficeSheetTabs"
+                          Grid.Row="1"
+                          Visibility="Collapsed"
+                          Height="44"
+                          SelectionMode="Single"
+                          IsItemClickEnabled="False"
+                          Background="{ThemeResource PreviewSurfaceBrush}"
+                          BorderBrush="{ThemeResource PreviewSurfaceBorderBrush}"
+                          BorderThickness="1,0,1,1"
+                          Padding="8,2"
+                          ScrollViewer.HorizontalScrollMode="Enabled"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollMode="Disabled"
+                          ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsStackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"
+                                       MaxWidth="220"
+                                       FontSize="13"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTipService.ToolTip="{Binding}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="MinWidth" Value="80" />
+                            <Setter Property="MinHeight" Value="36" />
+                            <Setter Property="Padding" Value="14,6" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Grid>
             <Border x:Name="OfficeCoveragePanel"
                     Visibility="Collapsed"
                     HorizontalAlignment="Left"

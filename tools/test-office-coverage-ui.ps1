@@ -53,14 +53,34 @@ Require-Pattern $tests 'Preview_office_layout_json_preserves_coverage_and_lazy_i
 Require-Pattern $parserIntegrationTests 'Generated_docx_returns_office_text_and_layout[\s\S]{0,3200}?RepresentedPageCount[\s\S]{0,240}?TotalPageCount[\s\S]{0,240}?PageLimit[\s\S]{0,4200}?Generated_xlsx_pptx_and_pptm_return_office_layouts[\s\S]{0,7000}?workbook\.RepresentedPageCount[\s\S]{0,500}?workbook\.TotalPageCount[\s\S]{0,500}?workbook\.PageLimit[\s\S]{0,1400}?presentation\.RepresentedPageCount[\s\S]{0,500}?presentation\.TotalPageCount[\s\S]{0,500}?presentation\.PageLimit' `
     "ParserHost integration tests must preserve Office coverage from Rust through the managed contract."
 
-Require-Pattern $xaml '<ScrollViewer\s+[^>]*x:Name="OfficeScrollViewer"[^>]*Padding="20,58,20,20"[\s\S]{0,700}?</ScrollViewer>\s*<Border\s+[^>]*x:Name="OfficeCoveragePanel"[^>]*Visibility="Collapsed"[^>]*IsHitTestVisible="False"[^>]*>[\s\S]{0,600}?x:Name="OfficeCoverageText"[\s\S]{0,300}?AutomationProperties\.LiveSetting="Polite"' `
+Require-Pattern $xaml '<ScrollViewer\s+[^>]*x:Name="OfficeScrollViewer"[^>]*Padding="20,58,20,20"' `
+    "Office scrolling must reserve space above the first page for coverage."
+Require-Pattern $xaml '<Border\s+[^>]*x:Name="OfficeCoveragePanel"[^>]*Visibility="Collapsed"[^>]*IsHitTestVisible="False"[^>]*>[\s\S]{0,600}?x:Name="OfficeCoverageText"[\s\S]{0,300}?AutomationProperties\.LiveSetting="Polite"' `
     "Office coverage must use a stable non-interactive live panel without covering the first page."
-Require-Pattern $mainWindow 'new\s+PreviewPanelController\([\s\S]{0,340}?OfficeScrollViewer,[\s\S]{0,80}?OfficeCoveragePanel,' `
+Require-Pattern $mainWindow 'new\s+PreviewPanelController\([\s\S]{0,340}?OfficePreviewContainer,[\s\S]{0,80}?OfficeCoveragePanel,' `
     "The panel controller must own the Office coverage panel."
 Require-Pattern $mainWindow 'new\s+OfficePreviewPresenter\([\s\S]{0,220}?OfficePagesPanel,[\s\S]{0,80}?OfficeCoveragePanel,[\s\S]{0,80}?OfficeCoverageText,' `
     "OfficePreviewPresenter must receive the stable coverage controls."
 Require-Pattern $panelController '_officeCoveragePanel\.Visibility\s*=\s*Visibility\.Collapsed' `
     "Switching preview kinds must hide stale Office coverage."
+Require-Pattern $panelController '_officePreviewContainer\.Visibility\s*=\s*Visibility\.Collapsed' `
+    "Switching preview kinds must also hide the workbook selector."
+
+[xml]$officeXaml = $xaml
+$ns = [Xml.XmlNamespaceManager]::new($officeXaml.NameTable)
+$ns.AddNamespace('p', 'http://schemas.microsoft.com/winfx/2006/xaml/presentation')
+$ns.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
+$container = $officeXaml.SelectSingleNode('//p:Grid[@x:Name="OfficePreviewContainer"]', $ns)
+if ($null -eq $container -or
+    $null -eq $container.SelectSingleNode('p:ScrollViewer[@x:Name="OfficeScrollViewer"]', $ns) -or
+    $null -eq $container.SelectSingleNode('p:ListView[@x:Name="OfficeSheetTabs" and @Grid.Row="1" and @SelectionMode="Single"]', $ns) -or
+    $null -eq $container.SelectSingleNode('p:Grid.RowDefinitions/p:RowDefinition[2][@Height="Auto"]', $ns)) {
+    Add-Failure 'Workbook sheets must use a stable single-selection control in a footer outside the content scroller.'
+}
+Require-Pattern $presenter 'private void SelectSheet\(int index\)[\s\S]{0,700}?_pagesPanel\.Children\.Clear\(\)[\s\S]{0,300}?slot\.Host\.Child = null[\s\S]{0,300}?Materialize\(selected\)[\s\S]{0,150}?ChangeView\(0, 0' `
+    'Selecting a workbook sheet must release inactive views and reset content scrolling.'
+Require-Pattern $presenter 'OfficeLayoutPresentationPolicy\.Scale\(layout\.LayoutKind' `
+    'Office rendering must use the tested readable workbook scale policy.'
 
 Require-Pattern $presenter 'MaxPresentedPages\s*=\s*16' `
     "Office rendering must retain the 16-page WinUI presentation bound."

@@ -13,7 +13,7 @@ internal sealed class PreviewPanelController
     private readonly FrameworkElement _pdfDocumentStatePanel;
     private readonly FrameworkElement _textPreviewContainer;
     private readonly FrameworkElement _tableScrollViewer;
-    private readonly FrameworkElement _officeScrollViewer;
+    private readonly FrameworkElement _officePreviewContainer;
     private readonly FrameworkElement _officeCoveragePanel;
     private readonly FrameworkElement _mediaPreviewElement;
     private readonly FrameworkElement _listingPanel;
@@ -32,7 +32,7 @@ internal sealed class PreviewPanelController
         FrameworkElement pdfDocumentStatePanel,
         FrameworkElement textPreviewContainer,
         FrameworkElement tableScrollViewer,
-        FrameworkElement officeScrollViewer,
+        FrameworkElement officePreviewContainer,
         FrameworkElement officeCoveragePanel,
         FrameworkElement mediaPreviewElement,
         FrameworkElement listingPanel,
@@ -50,7 +50,7 @@ internal sealed class PreviewPanelController
         _pdfDocumentStatePanel = pdfDocumentStatePanel;
         _textPreviewContainer = textPreviewContainer;
         _tableScrollViewer = tableScrollViewer;
-        _officeScrollViewer = officeScrollViewer;
+        _officePreviewContainer = officePreviewContainer;
         _officeCoveragePanel = officeCoveragePanel;
         _mediaPreviewElement = mediaPreviewElement;
         _listingPanel = listingPanel;
@@ -71,7 +71,7 @@ internal sealed class PreviewPanelController
         _pdfDocumentStatePanel.Visibility = Visibility.Collapsed;
         _textPreviewContainer.Visibility = Visibility.Collapsed;
         _tableScrollViewer.Visibility = Visibility.Collapsed;
-        _officeScrollViewer.Visibility = Visibility.Collapsed;
+        _officePreviewContainer.Visibility = Visibility.Collapsed;
         _officeCoveragePanel.Visibility = Visibility.Collapsed;
         _mediaPreviewElement.Visibility = Visibility.Collapsed;
         _listingPanel.Visibility = Visibility.Collapsed;
@@ -122,7 +122,7 @@ internal sealed class PreviewPanelController
     public void ShowOffice()
     {
         HideAllCorePanels();
-        _officeScrollViewer.Visibility = Visibility.Visible;
+        _officePreviewContainer.Visibility = Visibility.Visible;
     }
 
     public void ShowMedia()

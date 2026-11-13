@@ -677,8 +677,14 @@ Require-Pattern $nativeOfficeDocumentTests 'office_xml_parser_honors_cancellatio
     "DOCX tests must retain cancellation coverage for fragmented XML."
 Require-Pattern $nativeOfficeWorkbook 'const MAX_OFFICE_ROWS:\s*usize\s*=\s*48[\s\S]*const MAX_OFFICE_SHEETS:\s*usize\s*=\s*6[\s\S]*const MAX_OFFICE_TABLE_CELL_WIDTH:\s*usize\s*=\s*36[\s\S]*const XLSX_CELL_WIDTH:\s*f64\s*=\s*96\.0[\s\S]*const XLSX_ROW_HEIGHT:\s*f64\s*=\s*28\.0' `
     "XLSX rendering must retain bounded rows, sheets, cell text, and default geometry."
-Require-Pattern $nativeOfficeWorkbook 'fn build_xlsx_layout<R:\s*Read\s*\+\s*Seek>[\s\S]*let\s+mut\s+image_budget\s*=\s*MAX_OFFICE_LAYOUT_IMAGES[\s\S]*for\s+sheet_idx\s+in\s+1\.\.=MAX_OFFICE_SHEETS' `
+Require-Pattern $nativeOfficeWorkbook 'fn build_xlsx_layout<R:\s*Read\s*\+\s*Seek>[\s\S]*workbook_sheets\(context, zip\)[\s\S]*let\s+mut\s+image_budget\s*=\s*MAX_OFFICE_LAYOUT_IMAGES[\s\S]*for\s+\(sheet_index, sheet\)\s+in\s+sheets\.iter\(\)\.enumerate\(\)' `
     "XLSX layout generation must share the 18-image budget and cap represented sheets."
+$nativeWorkbookMetadata = Join-Path $Root 'native/quicklook_next_native/src/preview/office/workbook/metadata.rs'
+$nativeWorkbookMetadataTests = Join-Path $Root 'native/quicklook_next_native/src/preview/office/workbook/metadata/tests.rs'
+Require-Pattern $nativeWorkbookMetadata 'read_office_zip_text\(context, zip, "xl/workbook.xml", 2 \* 1024 \* 1024\)[\s\S]*1\.\.=MAX_OFFICE_SHEETS[\s\S]*context\.check_xml_event\(event_count\)[\s\S]*if total > MAX_OFFICE_SHEETS\s*\{\s*continue;[\s\S]*name\.chars\(\)\.take\(128\)' `
+    'Workbook metadata discovery must retain bounded XML, cancellation checks, six-sheet limits on both paths, and bounded names.'
+Require-Pattern $nativeWorkbookMetadataTests 'xlsx_workbook_metadata_keeps_the_six_sheet_limit_and_bounds_titles[\s\S]*layout\.total_page_count, 7[\s\S]*layout\.pages\.len\(\), 6[\s\S]*page\.title\.chars\(\)\.count\(\) == 128' `
+    'Workbook metadata tests must prove that source counts do not enlarge the retained-sheet or name limits.'
 Require-Pattern $nativeOfficeWorkbook 'fn parse_worksheet_rows\([\s\S]*event_count\s*\+=\s*1[\s\S]*context\.check_xml_event\(event_count\)[\s\S]*rows\.len\(\)\s*>=\s*MAX_OFFICE_ROWS' `
     "XLSX worksheet row traversal must remain cancellation-aware and capped at 48 rows."
 Require-Pattern $nativeOfficeWorkbook 'fn parse_xlsx_drawing_items<R:\s*Read\s*\+\s*Seek>[\s\S]*context\.check_xml_event\(event_count\)[\s\S]*image_item_from_relationship\([\s\S]*image_budget' `

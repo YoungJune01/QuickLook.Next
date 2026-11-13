@@ -5,6 +5,9 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
 use zip::ZipArchive;
 
+mod metadata;
+use metadata::workbook_sheets;
+
 #[cfg(test)]
 mod tests;
 
@@ -42,20 +45,18 @@ pub(in crate::preview) fn render_xlsx<R: Read + Seek>(
             .unwrap_or_default();
 
     let mut sections = Vec::new();
-    for sheet_idx in 1..=MAX_OFFICE_SHEETS {
-        let name = format!("xl/worksheets/sheet{sheet_idx}.xml");
-        let Some(xml) = read_office_zip_text(context, zip, &name, 16 * 1024 * 1024)? else {
-            if sheet_idx == 1 {
-                continue;
-            }
-            break;
+    let (sheets, _) = workbook_sheets(context, zip)?;
+    for sheet in &sheets {
+        let Some(xml) = read_office_zip_text(context, zip, &sheet.part, 16 * 1024 * 1024)? else {
+            continue;
         };
         let rows = parse_worksheet_rows(context, &xml, &shared_strings)?;
         if rows.is_empty() {
             continue;
         }
         sections.push(format!(
-            "Sheet {sheet_idx}\n{}",
+            "{}\n{}",
+            sheet.title,
             format_table_rows(&rows).join("\n")
         ));
     }
@@ -85,21 +86,17 @@ fn build_xlsx_layout<R: Read + Seek>(
     zip: &mut ZipArchive<R>,
     shared_strings: &[String],
 ) -> OfficeResult<Option<OfficeLayoutDto>> {
-    let total_page_count = count_numbered_parts(context, zip, "xl/worksheets/", "sheet")?;
+    let (sheets, total_page_count) = workbook_sheets(context, zip)?;
     let mut pages = Vec::new();
     let mut image_budget = MAX_OFFICE_LAYOUT_IMAGES;
     let styles = read_office_zip_text(context, zip, "xl/styles.xml", 4 * 1024 * 1024)?
         .map(|xml| parse_xlsx_styles(context, &xml))
         .transpose()?
         .unwrap_or_default();
-    for sheet_idx in 1..=MAX_OFFICE_SHEETS {
-        let sheet_name = format!("xl/worksheets/sheet{sheet_idx}.xml");
-        let Some(sheet_xml) = read_office_zip_text(context, zip, &sheet_name, 16 * 1024 * 1024)?
+    for (sheet_index, sheet) in sheets.iter().enumerate() {
+        let Some(sheet_xml) = read_office_zip_text(context, zip, &sheet.part, 16 * 1024 * 1024)?
         else {
-            if sheet_idx == 1 {
-                continue;
-            }
-            break;
+            continue;
         };
 
         let metrics = parse_xlsx_sheet_metrics(context, &sheet_xml)?;
@@ -116,20 +113,17 @@ fn build_xlsx_layout<R: Read + Seek>(
         let mut items = parse_xlsx_sheet_images(
             context,
             zip,
-            sheet_idx,
+            &sheet.part,
             &sheet_xml,
             &metrics,
             &mut image_budget,
         )?;
         let (width, height) = xlsx_page_size(&cells, &items);
-        if cells.is_empty() && items.is_empty() {
-            continue;
-        }
         cells.sort_by_key(|cell| (cell.row, cell.column));
         items.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal));
         pages.push(OfficePageDto {
-            title: format!("Sheet {sheet_idx}"),
-            index: sheet_idx,
+            title: sheet.title.clone(),
+            index: sheet_index + 1,
             width,
             height,
             background_color: None,
@@ -626,7 +620,7 @@ fn xlsx_builtin_number_format(id: u32) -> Option<&'static str> {
 fn parse_xlsx_sheet_images<R: Read + Seek>(
     context: &mut OfficeContext,
     zip: &mut ZipArchive<R>,
-    sheet_idx: usize,
+    sheet_part: &str,
     sheet_xml: &str,
     metrics: &XlsxSheetMetrics,
     image_budget: &mut usize,
@@ -634,7 +628,7 @@ fn parse_xlsx_sheet_images<R: Read + Seek>(
     let Some(drawing_rid) = parse_worksheet_drawing_rid(context, sheet_xml)? else {
         return Ok(Vec::new());
     };
-    let sheet_rels_name = format!("xl/worksheets/_rels/sheet{sheet_idx}.xml.rels");
+    let sheet_rels_name = rels_path_for_part(sheet_part);
     let sheet_rels = read_office_zip_text(context, zip, &sheet_rels_name, 2 * 1024 * 1024)?
         .map(|xml| parse_relationships(context, &xml))
         .transpose()?
@@ -642,7 +636,7 @@ fn parse_xlsx_sheet_images<R: Read + Seek>(
     let Some(drawing_target) = sheet_rels.get(&drawing_rid) else {
         return Ok(Vec::new());
     };
-    let drawing_path = normalize_zip_target("xl/worksheets/", drawing_target);
+    let drawing_path = normalize_zip_target(&part_base_dir(sheet_part), drawing_target);
     let Some(drawing_xml) = read_office_zip_text(context, zip, &drawing_path, 4 * 1024 * 1024)?
     else {
         return Ok(Vec::new());
