@@ -30,6 +30,8 @@ internal static class UiStrings
     public static string PreviewDisplayFailedMessage => Get(nameof(PreviewDisplayFailedMessage));
     public static string PreviewContentFailedTitle => Get(nameof(PreviewContentFailedTitle));
     public static string PreviewContentFailedMessage => Get(nameof(PreviewContentFailedMessage));
+    public static string PreviewContentLimitExceededTitle => Get(nameof(PreviewContentLimitExceededTitle));
+    public static string PreviewContentLimitExceededMessage => Get(nameof(PreviewContentLimitExceededMessage));
     public static string ImageCodecRequiredTitle => Get(nameof(ImageCodecRequiredTitle));
     public static string ImageCodecRequiredMessageFormat => Get(nameof(ImageCodecRequiredMessageFormat));
     public static string ImageDecodeFailedTitle => Get(nameof(ImageDecodeFailedTitle));

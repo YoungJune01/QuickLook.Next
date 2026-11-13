@@ -54,10 +54,16 @@ elseif ($createSignature -match '(?i)path|fileName|message|title') {
     Add-Failure "Preview diagnostics Create must not accept paths, file names, messages, or titles."
 }
 
-foreach ($code in @("Unknown", "ContentFailed", "TimedOut", "ServiceUnavailable", "SurfaceFailed")) {
+foreach ($code in @("Unknown", "ContentFailed", "ContentLimitExceeded", "TimedOut", "ServiceUnavailable", "SurfaceFailed")) {
     Require-Pattern $errorCodes ('const\s+string\s+' + $code + '\s*=\s*"[a-z0-9._-]+"') `
         "Preview error codes are missing stable code $code."
 }
+
+Require-Pattern $mainWindow 'if \(error\.Code == PreviewErrorCodes\.ContentLimitExceeded\)[\s\S]{0,240}?TryShowErrorPreview\([\s\S]{0,240}?UiStrings\.PreviewContentLimitExceededTitle[\s\S]{0,160}?UiStrings\.PreviewContentLimitExceededMessage[\s\S]{0,160}?canRetry: false' `
+    "Size-limit failures must use the localized, generation-bound error panel without offering a retry."
+$parserProgram = Read-RequiredFile "src/QuickLook.Next.ParserHost/Program.cs"
+Require-Pattern $parserProgram 'Code = handleResult\.Status == NativeAbi\.StatusLimitExceeded\s*\? PreviewErrorCodes\.ContentLimitExceeded\s*: PreviewErrorCodes\.ContentFailed' `
+    "ParserHost must distinguish native size limits from other failures using status codes."
 
 Require-Pattern $session 'record struct PreviewErrorContext\([\s\S]{0,240}?PreviewFailureDiagnostic\s+Diagnostics\)' `
     "The current error context must own its redacted diagnostic snapshot."
@@ -85,7 +91,7 @@ else {
     }
 }
 
-foreach ($key in @("CopyDiagnostics", "DiagnosticsCopied")) {
+foreach ($key in @("CopyDiagnostics", "DiagnosticsCopied", "PreviewContentLimitExceededTitle", "PreviewContentLimitExceededMessage")) {
     Require-Pattern $uiStrings ('public\s+static\s+string\s+' + $key + '\s*=>\s*Get\(nameof\(' + $key + '\)\)') `
         "UiStrings is missing preview diagnostics resource $key."
     foreach ($locale in @("en-US", "zh-CN", "zh-TW")) {

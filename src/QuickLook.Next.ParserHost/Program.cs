@@ -266,11 +266,16 @@ while (true)
                         handleCts.Token.ThrowIfCancellationRequested();
                         if (handleResult.Status != NativeAbi.StatusOk || handleResult.Json is null)
                         {
-                            string failure = ParserNativePreview.DescribeHandleFailure(handleResult.Status);
                             DiagLog.Write(
                                 "ParserHost",
                                 $"native handle preview failed request={open.RequestId} status={handleResult.Status}");
-                            await channel.SendAsync(new PreviewError(open.RequestId, failure));
+                            await channel.SendAsync(
+                                PreviewError.InternalFailure(open.RequestId, "native-handle", open.Probe.Extension) with
+                                {
+                                    Code = handleResult.Status == NativeAbi.StatusLimitExceeded
+                                        ? PreviewErrorCodes.ContentLimitExceeded
+                                        : PreviewErrorCodes.ContentFailed,
+                                });
                         }
                         else if (!PreviewReadyJson.TryParse(open.RequestId, handleResult.Json, out PreviewReady? handleReady, out string? handleError))
                         {

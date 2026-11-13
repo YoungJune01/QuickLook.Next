@@ -2026,9 +2026,21 @@ public sealed partial class MainWindow : Window
             ? PreviewErrorCodes.ContentFailed
             : error.Code;
         string knownCode = error.Code is PreviewErrorCodes.ImageCodecRequired or PreviewErrorCodes.ImageDecodeFailed
+            or PreviewErrorCodes.ContentLimitExceeded
             ? error.Code
             : "unknown";
         DiagLog.Write("App", $"host preview error: code={knownCode}; format={normalizedFormat ?? "unknown"}");
+        if (error.Code == PreviewErrorCodes.ContentLimitExceeded)
+        {
+            return TryShowErrorPreview(
+                session,
+                UiStrings.PreviewContentLimitExceededTitle,
+                UiStrings.PreviewContentLimitExceededMessage,
+                canRetry: false,
+                diagnosticCode: diagnosticCode,
+                reportedFormat: error.Format,
+                phase: error.Phase);
+        }
         if (error.Code == PreviewErrorCodes.ImageCodecRequired
             && normalizedFormat is string format)
         {

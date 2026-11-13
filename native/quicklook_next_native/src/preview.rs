@@ -583,8 +583,12 @@ fn read_office_zip_text<R: Read + Seek>(
     name: &str,
     max_size: u64,
 ) -> OfficeResult<Option<String>> {
-    Ok(read_office_zip_bytes(context, zip, name, max_size)?
-        .map(|bytes| String::from_utf8_lossy(&bytes).to_string()))
+    // Structured XML cannot be silently omitted like an optional embedded image:
+    // a skipped worksheet/shared-string part otherwise looks like an empty file.
+    Ok(
+        read_office_zip_bytes_with_policy(context, zip, name, max_size, true)?
+            .map(|bytes| String::from_utf8_lossy(&bytes).to_string()),
+    )
 }
 
 fn read_office_zip_bytes<R: Read + Seek>(
@@ -593,10 +597,24 @@ fn read_office_zip_bytes<R: Read + Seek>(
     name: &str,
     max_size: u64,
 ) -> OfficeResult<Option<Vec<u8>>> {
+    read_office_zip_bytes_with_policy(context, zip, name, max_size, false)
+}
+
+fn read_office_zip_bytes_with_policy<R: Read + Seek>(
+    context: &mut OfficeContext,
+    zip: &mut ZipArchive<R>,
+    name: &str,
+    max_size: u64,
+    reject_oversized: bool,
+) -> OfficeResult<Option<Vec<u8>>> {
     context.check_cancelled()?;
     if let Ok(mut entry) = zip.by_name(name) {
         if entry.size() > max_size {
-            return Ok(None);
+            return if reject_oversized {
+                Err(OfficeReadError::BudgetExhausted)
+            } else {
+                Ok(None)
+            };
         }
         return read_office_limited_to_end(context, &mut entry, max_size);
     }
@@ -614,7 +632,11 @@ fn read_office_zip_bytes<R: Read + Seek>(
             continue;
         }
         if entry.size() > max_size {
-            return Ok(None);
+            return if reject_oversized {
+                Err(OfficeReadError::BudgetExhausted)
+            } else {
+                Ok(None)
+            };
         }
         return read_office_limited_to_end(context, &mut entry, max_size);
     }
@@ -637,7 +659,7 @@ fn read_office_limited_to_end<R: Read>(
                 .saturating_sub(bytes.len() as u64) as usize,
         );
         if max_read == 0 {
-            return Ok(None);
+            return Err(OfficeReadError::BudgetExhausted);
         }
         let read = match reader.read(&mut buffer[..max_read]) {
             Ok(read) => read,

@@ -226,6 +226,8 @@ $apiRules = @(
             "tests/QuickLook.Next.Core.Tests/DiagnosticsBundleTests.cs",
             "tests/QuickLook.Next.ParserHost.IntegrationTests/ParserHostIntegrationTests.cs",
             "tests/QuickLook.Next.ParserHost.IntegrationTests/OfficeImageSharedSectionTests.cs",
+            # Synthetic oversized ZIP fixtures only; Office parsing stays in Rust.
+            "tests/QuickLook.Next.ParserHost.IntegrationTests/WorkbookLimitTests.cs",
             "tests/QuickLook.Next.RasterHost.IntegrationTests/RasterHostAnimationTests.cs"
         )
     },

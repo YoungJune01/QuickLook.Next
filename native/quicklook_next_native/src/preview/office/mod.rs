@@ -9,6 +9,9 @@ mod layout;
 mod presentation;
 mod workbook;
 
+#[cfg(test)]
+mod limits_tests;
+
 use super::{OfficeContext, OfficeResult, MAX_OFFICE_ZIP_ENTRIES};
 
 pub(super) use document::{render_docx, render_odf};

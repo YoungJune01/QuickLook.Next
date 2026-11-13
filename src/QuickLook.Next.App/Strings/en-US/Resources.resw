@@ -648,4 +648,6 @@
   <data name="OfficePageCoverageFormat" xml:space="preserve"><value>Showing {0:N0} of {1:N0} approximate pages (preview limit {2:N0}).</value></data>
   <data name="CopyDiagnostics" xml:space="preserve"><value>Copy diagnostics</value></data>
   <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostics copied.</value></data>
+  <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>File exceeds preview limits</value></data>
+  <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>This file contains too much data or its decompressed content exceeds preview limits. Use Open File to view the full contents in its associated app.</value></data>
 </root>

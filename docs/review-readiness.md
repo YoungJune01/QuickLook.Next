@@ -107,6 +107,49 @@ interactive acceptance belongs to the owner; the agent handles implementation,
 builds, and automated checks without operating the owner's desktop. The test
 workbook is synthetic; no personal workbook data is included in the repository.
 
+## 2026-11-13 local fork: explicit oversized-content failures
+
+Office XML parts previously returned the same missing-part result when their
+decompressed size exceeded a per-part cap. A large worksheet could therefore
+produce `Status: no extractable worksheet cells`, and an oversized shared-string
+table could silently lose cell text. Structured XML now propagates a typed
+`LimitExceeded` failure. Optional oversized media can still be skipped; actual
+stream overflow fails with the same typed limit. Existing input, decompression,
+part, row, column, and sheet budgets are unchanged.
+
+ParserHost forwards the native limit as `preview.content.limit_exceeded`, and
+the App selects localized explanatory text with the existing generation-bound
+error panel and Open File action. Malformed input keeps a separate failure code;
+the UI does not infer size from exception text or row counts and does not retry
+by reopening a logical path.
+
+Synthetic regression coverage includes compressed oversized worksheet/shared
+strings/styles/metadata, normalized entry names, exact byte boundaries, missing
+and empty parts, optional media, stream overflow, cancellation, and 50,000 small
+rows that still produce only the bounded first 48 rows. Real ParserHost pipe
+tests verify typed failures, source HANDLE release, and rejected follow-ups.
+Read-only inspection of the owner's reported export confirmed a 5,662,077-byte
+XLSX with a 72,826,633-byte worksheet XML part, above the 16 MiB per-sheet cap.
+The rebuilt DLL's `ql_preview_office_handle` returned `-9` (`LimitExceeded`)
+against the exact file HANDLE in 14 ms. The source length and write timestamp
+were unchanged. The file, its cells, name, and path are not included in the
+repository. Interactive acceptance is pending.
+
+The pinned native MSBuild build and managed Release build passed with zero
+warnings/errors. Format/Clippy passed; Rust tests passed 382 with one existing
+ignored corpus test. Managed suites passed 557 tests (Core 420, ParserHost 52,
+RasterHost 72, ShellBroker 13), including the new HANDLE limit regressions.
+The existing malformed-input assertion now checks the stable failure code and
+fixed public message rather than an English diagnostic substring. Changed C#
+whitespace and three-locale resource parity (484 keys) passed. The test-only ZIP
+fixture file is explicitly allowlisted; production parser API permissions and
+all resource limits remain unchanged. The full architecture `-SkipDist` gate
+passed, including the extended size-limit error UI checks.
+
+The verified 185-file local payload is under
+`artifacts/local-preview-20261113-workbook-limits/`. Its native DLL SHA-256 is
+`8C8594CC2C6C9EE7F8FDBCC517244FC92EB4007ABB1E9472A8314ECBE76365F7`.
+
 ## Current Verification And Priority
 
 The active work is tracked in [`implementation-todo.md`](implementation-todo.md).

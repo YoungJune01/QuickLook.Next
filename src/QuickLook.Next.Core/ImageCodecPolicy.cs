@@ -4,6 +4,7 @@ public static class PreviewErrorCodes
 {
     public const string Unknown = "preview.unknown";
     public const string ContentFailed = "preview.content.failed";
+    public const string ContentLimitExceeded = "preview.content.limit_exceeded";
     public const string TimedOut = "preview.timeout";
     public const string ServiceUnavailable = "preview.service.unavailable";
     public const string SurfaceFailed = "preview.surface.failed";

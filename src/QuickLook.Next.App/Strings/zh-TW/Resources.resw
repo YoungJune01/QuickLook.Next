@@ -1078,4 +1078,6 @@
   <data name="OfficePageCoverageFormat" xml:space="preserve"><value>正在顯示 {1:N0} 個近似頁面中的 {0:N0} 個（預覽上限 {2:N0} 個）。</value></data>
   <data name="CopyDiagnostics" xml:space="preserve"><value>複製診斷資訊</value></data>
   <data name="DiagnosticsCopied" xml:space="preserve"><value>診斷資訊已複製。</value></data>
+  <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>檔案過大，無法預覽</value></data>
+  <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此檔案的資料量或解壓縮後的內容超出預覽限制。請按一下「開啟檔案」，使用關聯應用程式查看完整內容。</value></data>
 </root>

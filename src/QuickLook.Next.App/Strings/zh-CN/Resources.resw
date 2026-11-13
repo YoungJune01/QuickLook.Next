@@ -486,4 +486,6 @@
   <data name="OfficePageCoverageFormat" xml:space="preserve"><value>正在显示 {1:N0} 个近似页面中的 {0:N0} 个（预览上限 {2:N0} 个）。</value></data>
   <data name="CopyDiagnostics" xml:space="preserve"><value>复制诊断信息</value></data>
   <data name="DiagnosticsCopied" xml:space="preserve"><value>诊断信息已复制。</value></data>
+  <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>文件过大，无法预览</value></data>
+  <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此文件的数据量或解压后的内容超出预览限制。请点击“打开文件”，使用关联应用查看完整内容。</value></data>
 </root>

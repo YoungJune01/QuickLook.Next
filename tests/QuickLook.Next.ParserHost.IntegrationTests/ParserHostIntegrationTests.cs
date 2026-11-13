@@ -822,7 +822,8 @@ public sealed partial class ParserHostIntegrationTests
             {
                 PreviewError error = Assert.IsType<PreviewError>(response);
                 Assert.Equal(requestId, error.RequestId);
-                Assert.Contains("malformed", error.Message, StringComparison.OrdinalIgnoreCase);
+                Assert.Equal(PreviewErrorCodes.ContentFailed, error.Code);
+                Assert.Equal(PreviewError.StableFailureMessage, error.Message);
             }
             else
             {
