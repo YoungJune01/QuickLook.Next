@@ -21,7 +21,31 @@ runtime-inclusive portable package, then publishes its ZIP, SHA-256 and
 `update.json`. It does not require the optional MSIX signing secrets. Portable
 metadata rejects another repository, dirty-source package manifests, wrong
 versions/commits and checksum mismatches. Existing signed-release safeguards
-remain enabled. Publication and first hosted workflow execution are pending.
+remain enabled.
+
+First publication completed on 2026-11-15. The public `main` branch preserves all
+nine local commits with their original hashes; all 549 source paths, modes and
+blob hashes were compared with GitHub. Release `v1.0.4` targets source commit
+`e25d4a74bb91267d883c4803311613805b910a08`. Hosted CI run `43676498801` and
+Portable Release run `43676500538` both succeeded. Hosted checks include .NET
+format, Rust fmt/Clippy, 400 Rust tests (one existing ignored), 606 .NET tests,
+native MSBuild, full architecture checks and portable runtime/host/storage/
+profile/startup verification. NuGet and Rust dependency audits completed.
+`cargo audit` retained one allowed `rustix 1.1.4` xattr unsoundness warning
+(`RUSTSEC-2026-0486`), reached through `tar -> xattr` in the all-target graph;
+`cargo tree --locked --target x86_64-pc-windows-msvc -i rustix --offline`
+confirms that this crate is absent from the Windows release target graph.
+
+The stable ZIP is 92,370,583 bytes. Its GitHub asset digest, published checksum
+and `update.json` hash agree:
+`1b12b7e94b6deb4776e0dbf417aa0fe778943e398a9255bedd8ac3f6406f4f8e`.
+The release is public, is not a prerelease, and is returned by the repository's
+latest-release API. Published metadata was downloaded through GitHub CLI.
+Direct access from this computer to the GitHub download hostname timed out;
+the local proxy also failed its TLS handshake. These network failures do not
+establish a successful end-to-end App update check on this computer.
+Hosted logs and publication/hash receipts are retained in the local archive's
+`github-publication/` directory. Physical UI acceptance remains separate.
 
 Local verification passed: Rust fmt, all-target/all-feature Clippy, Rust 400
 passed/one existing ignored, native MSBuild, managed Release build, .NET 606

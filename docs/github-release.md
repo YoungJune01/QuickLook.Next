@@ -48,6 +48,7 @@ https://github.com/YoungJune01/QuickLook.Next/releases/latest/download/update.js
 将新版完整解压到新目录，再复制旧版 `Data/`；移动前关闭旧目录自启，新版按需开启。
 `update.json` 中的哈希用于资产一致性信息，当前客户端不会自动下载或安装。
 
-首次 Release 发布前，检查更新接口可能返回 404；源码推送不等于已经发布二进制。
+`v1.0.4` 已于 2026-11-15 发布，包含便携 ZIP、SHA-256 文件和 `update.json`。
+源码推送与二进制发布分别管理；后续修改源码后仍需运行发布工作流。
 以后迁移仓库需要同时修改 `ProjectRepository.cs`、`Directory.Build.props` 与文档，
 重新构建客户端，并在旧仓库给现有用户提供迁移说明。
