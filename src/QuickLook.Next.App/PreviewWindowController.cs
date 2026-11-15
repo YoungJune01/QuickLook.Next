@@ -20,6 +20,9 @@ internal sealed class PreviewWindowController
         _windowLevelProvider = windowLevelProvider;
     }
 
+    public bool IsForeground => GetForegroundWindow() == _hwndProvider();
+    public bool HasWindowKeyboardFocus => GetFocus() == _hwndProvider();
+
     public void Raise(bool activate)
     {
         using var trace = DiagLog.TraceScope("App", $"window raise activate={activate}", 50);
@@ -210,5 +213,8 @@ internal sealed class PreviewWindowController
 
     [DllImport("user32.dll")]
     private static extern nint SetFocus(nint hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetFocus();
 
 }

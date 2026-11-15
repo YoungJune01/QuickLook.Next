@@ -10,7 +10,9 @@
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == '' and ('$(ContinuousIntegrationBuild)' == 'true' or '$(Configuration)' == 'Release')">true</TreatWarningsAsErrors>
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">false</TreatWarningsAsErrors>
     <Company>QuickLook Next</Company>
-    <Authors>SherlockChiang</Authors>
+    <Authors>SherlockChiang; YoungJune01</Authors>
+    <RepositoryUrl>https://github.com/YoungJune01/QuickLook.Next</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <VersionFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)VERSION'))</VersionFile>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$([System.IO.File]::ReadAllText('$(VersionFile)').Trim())</VersionPrefix>

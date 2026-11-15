@@ -15,6 +15,7 @@ if (Test-Path -LiteralPath $legacyPackageWorkflowPath) {
     throw "Release packaging must not use a reusable workflow that hides Environment secrets."
 }
 $packageAction = Get-Content -LiteralPath $packageActionPath -Raw
+$portable = Get-Content -LiteralPath (Join-Path $Root '.github/workflows/portable-release.yml') -Raw
 $dependabot = Get-Content -LiteralPath (Join-Path $Root ".github\dependabot.yml") -Raw
 $packMsix = Get-Content -LiteralPath (Join-Path $Root "tools\pack-msix.ps1") -Raw
 
@@ -173,10 +174,23 @@ foreach ($workflow in @($stable, $beta)) {
         throw "Stable and beta releases must attest and publish release metadata."
     }
 }
-foreach ($workflow in @($ci, $stable, $beta, $packageAction)) {
+foreach ($workflow in @($ci, $stable, $beta, $packageAction, $portable)) {
     if ($workflow -match 'uses:\s+actions/[^@\s]+@v\d') {
         throw "Official actions must remain pinned to immutable commit SHAs."
     }
+}
+
+if ($portable -notmatch 'workflow_dispatch:' -or
+    $portable -notmatch "github.ref == 'refs/heads/main'" -or
+    $portable -notmatch 'test-release-target\.ps1' -or
+    $portable -notmatch 'tools/release\.ps1 -SkipPackage -SkipSystemImageSmoke' -or
+    $portable -notmatch 'tools/pack-portable\.ps1' -or
+    $portable -notmatch 'tools/test-portable-package\.ps1' -or
+    $portable -notmatch 'tools/new-portable-update-metadata\.ps1' -or
+    $portable -notmatch 'gh release create' -or
+    $portable -notmatch 'artifacts/update\.json' -or
+    $portable -match 'QUICKLOOK_RELEASE_PFX|--clobber') {
+    throw 'Portable releases must be explicit main-branch builds, retain all gates, publish the fork feed, and avoid signed-package secrets or asset replacement.'
 }
 
 Write-Host "release workflow guard passed" -ForegroundColor Green

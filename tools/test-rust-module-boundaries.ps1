@@ -70,6 +70,8 @@ $officeLayoutPath = Join-Path $Root "native\quicklook_next_native\src\preview\of
 $officeLayoutTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\layout\tests.rs"
 $officeDocumentPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\document.rs"
 $officeDocumentTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\document\tests.rs"
+$officeDocumentLayoutPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\document\layout.rs"
+$officeDocumentLayoutTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\document\tests\layout.rs"
 $officePresentationPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\presentation.rs"
 $officePresentationTestsPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\presentation\tests.rs"
 $officeWorkbookPath = Join-Path $Root "native\quicklook_next_native\src\preview\office\workbook.rs"
@@ -147,6 +149,8 @@ foreach ($path in @(
         $officeLayoutPath,
         $officeLayoutTestsPath,
         $officeDocumentPath,
+        $officeDocumentLayoutPath,
+        $officeDocumentLayoutTestsPath,
         $officeDocumentTestsPath,
         $officePresentationPath,
         $officePresentationTestsPath,
@@ -228,6 +232,8 @@ if ($failures.Count -eq 0) {
     $officeLayoutTestsText = Get-Content -LiteralPath $officeLayoutTestsPath -Raw
     $officeDocumentText = Get-Content -LiteralPath $officeDocumentPath -Raw
     $officeDocumentTestsText = Get-Content -LiteralPath $officeDocumentTestsPath -Raw
+    $officeDocumentLayoutText = Get-Content -LiteralPath $officeDocumentLayoutPath -Raw
+    $officeDocumentLayoutTestsText = Get-Content -LiteralPath $officeDocumentLayoutTestsPath -Raw
     $officePresentationText = Get-Content -LiteralPath $officePresentationPath -Raw
     $officePresentationTestsText = Get-Content -LiteralPath $officePresentationTestsPath -Raw
     $officeWorkbookText = Get-Content -LiteralPath $officeWorkbookPath -Raw
@@ -2033,8 +2039,8 @@ if ($failures.Count -eq 0) {
     foreach ($requiredDocument in @(
             'pub\(in crate::preview\) fn render_docx(?:<[^>]+>)?\(',
             'pub\(in crate::preview\) fn render_odf(?:<[^>]+>)?\(',
-            'fn build_docx_layout(?:<[^>]+>)?\(',
-            'fn push_docx_page\(',
+            'mod layout;',
+            'use layout::build_docx_layout;',
             'fn docx_header_footer_entries(?:<[^>]+>)?\(',
             'fn extract_docx_header_footer_text(?:<[^>]+>)?\(',
             'fn extract_wordprocessing_text\(',
@@ -2042,11 +2048,23 @@ if ($failures.Count -eq 0) {
             'fn docx_paragraph_prefix\(',
             'fn docx_numbered_paragraph_prefix\(',
             'context\.check_xml_event\(event_count\)',
-            'const MAX_OFFICE_DOCUMENT_PAGES: usize = 8;',
-            'entries\.truncate\(8\)',
-            'MAX_OFFICE_LAYOUT_IMAGES\.min\(6\)')) {
+            'entries\.truncate\(8\)')) {
         if ($officeDocumentText -notmatch $requiredDocument) {
             $failures.Add("Document module lost a bounded parser/routing invariant: $requiredDocument")
+        }
+    }
+
+    foreach ($requiredDocumentLayout in @(
+            'pub\(super\) fn build_docx_layout(?:<[^>]+>)?\(',
+            'const MAX_OFFICE_DOCUMENT_PAGES: usize = 8;',
+            'MAX_OFFICE_LAYOUT_IMAGES\.min\(6\)',
+            'context\.check_xml_event\(event_count\)',
+            'image_item_from_relationship\(',
+            'fn save_page\(',
+            'self\.page_index <= MAX_OFFICE_DOCUMENT_PAGES',
+            'value\.chars\(\)\.take\(420 - self\.text_chars\)')) {
+        if ($officeDocumentLayoutText -notmatch $requiredDocumentLayout) {
+            $failures.Add("Document flow module lost a bounded layout invariant: $requiredDocumentLayout")
         }
     }
 
@@ -2220,6 +2238,8 @@ if ($failures.Count -eq 0) {
             $officeLayoutTestsText,
             $officeDocumentText,
             $officeDocumentTestsText,
+            $officeDocumentLayoutText,
+            $officeDocumentLayoutTestsText,
             $officePresentationText,
             $officePresentationTestsText,
             $officeWorkbookText,
@@ -2291,6 +2311,12 @@ if ($failures.Count -eq 0) {
     if ($officeDocumentTestsLineCount -gt 220) {
         $failures.Add(
             "The focused Office document tests grew beyond 220 lines: $officeDocumentTestsLineCount")
+    }
+    if (@(Get-Content -LiteralPath $officeDocumentLayoutPath).Count -gt 360) {
+        $failures.Add("The focused Office document flow module grew beyond 360 lines.")
+    }
+    if (@(Get-Content -LiteralPath $officeDocumentLayoutTestsPath).Count -gt 220) {
+        $failures.Add("The focused Office document flow tests grew beyond 220 lines.")
     }
     $officePresentationLineCount = @(Get-Content -LiteralPath $officePresentationPath).Count
     if ($officePresentationLineCount -gt 1300) {

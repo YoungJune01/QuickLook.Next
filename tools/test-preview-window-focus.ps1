@@ -164,8 +164,14 @@ if ($mainWindow.Length -gt 0) {
         "ResizeWindowForContent must name its z-order operation separately from Topmost state."
     Require-Pattern $mainWindow 'if\s*\(raiseWindow\s*&&\s*_previewVisible\)[\s\S]*?_windowController\.Raise\(activate:\s*false\)' `
         "Visible content resize must raise without activating the preview."
-    Require-Pattern $mainWindow 'PreviewWindowPolicy\.ParseLevel\(AppSettings\.Current\.PreviewWindowLevel\)' `
-        "MainWindow must supply the validated window-level policy to PreviewWindowController."
+    Require-Pattern $mainWindow '\(\) => _windowOptions\.Level' `
+        "MainWindow must supply its own temporary window-level policy to PreviewWindowController."
+    Require-Pattern $mainWindow 'HidePreviewWindow\(\)[\s\S]*?_windowOptions\.Reset\(\)' `
+        "Closing a preview must clear its temporary pin and topmost options."
+    Require-Pattern $mainWindow 'ClosePreviewOnFocusLoss && !_isPinned' `
+        "Pinned windows must survive focus loss."
+    Require-Pattern $mainWindow 'SetTitleBar\(PreviewTitleDragRegion\)' `
+        "Window action buttons must remain outside the title-bar drag region."
     Require-Pattern $mainWindow 'OnPreviewWindowActivated[\s\S]*DispatcherQueuePriority\.Low[\s\S]*PreviewWindowPolicy\.ShouldCloseAfterDeactivation' `
         "Focus-loss close must be confirmed after transient activation changes settle."
     Require-Pattern $mainWindow '_windowController\.ApplyConfiguredLevel\(_previewVisible\)' `
@@ -173,6 +179,73 @@ if ($mainWindow.Length -gt 0) {
 }
 
 $focusDocs = Read-RequiredFile "docs/keyboard-focus-consumers.md"
+$native = Read-RequiredFile "native/quicklook_next_native/src/lib.rs"
+$spaceBranch = [regex]::Match($native, 'if kb\.vkCode == VK_SPACE_U32\s*\{([\s\S]*?)(?=\s*\} else if matches!\()')
+if (-not $spaceBranch.Success) {
+    Add-Failure "The native Space branch must remain inspectable."
+}
+else {
+    Require-Pattern $spaceBranch.Groups[1].Value 'space_open_should_fire\([\s\S]*PostThreadMessageW\(tid, WM_QL_PREVIEW,' `
+        "Global Space must use the tested Explorer-content open policy."
+    if ($spaceBranch.Groups[1].Value -match 'WM_QL_CLOSE') {
+        Add-Failure "Global Space must not close a preview after the user moves focus to Explorer."
+    }
+}
+Require-Pattern $controller 'IsForeground\s*=>\s*GetForegroundWindow\(\)\s*==\s*_hwndProvider\(\)' `
+    "Space ownership must query the current foreground HWND rather than a cached activation event."
+Require-Pattern $mainWindow 'ShouldHandleSpaceAsPreviewClose\(\)\s*=>\s*PreviewWindowPolicy\.ShouldCloseFromSpace\([\s\S]{0,180}?_windowController\.IsForeground' `
+    "Both preview Space routes must require current foreground ownership."
+Require-Pattern $mainWindow 'intent\.Intent == PreviewIntent\.Open\s*&& IsPreviewActiveForClose\(\)\s*&& !_windowController\.IsForeground\)\s*return;' `
+    "Late Explorer OPEN results must not toggle or reactivate a background preview."
+
+$manager = Read-RequiredFile "src/QuickLook.Next.App/PreviewWindowManager.cs"
+$routing = Read-RequiredFile "src/QuickLook.Next.App/PreviewWindowRoutingPolicy.cs"
+$settings = Read-RequiredFile "src/QuickLook.Next.App/AppSettings.cs"
+Require-Pattern $routing 'MaximumWindows = 3' "The preview pool must stay bounded to three windows."
+Require-Pattern $routing 'SelectTarget\(slots, allowForegroundPinned: false\)[\s\S]*StringComparison\.OrdinalIgnoreCase\) \? Ignore : reusable' `
+    "Explorer Space must ignore the current ordinary background file and reuse its window for a different file."
+Require-Pattern $manager 'slots\[target\]\.Pinned[\s\S]*ActivateExistingPreview[\s\S]*else[\s\S]*new NativeIntent\(PreviewIntent\.Switch' `
+    "An ordinary background preview may change file only through the non-activating Switch path."
+Require-Pattern $manager '_windows\.Count >= PreviewWindowRoutingPolicy\.MaximumWindows' `
+    "The real allocation path must enforce the window limit."
+Require-Pattern $manager 'SelectOpen[\s\S]*AtCapacity[\s\S]*ShowPreviewLimitMessage' `
+    "A full pinned pool must notify the user without replacing a preview."
+Require-Pattern $manager '_windows\.Any\(window => window\.RoutingSlot\.Active\)[\s\S]*SetPreviewVisible\(anyActive\)' `
+    "Native visibility must aggregate every active preview, including pending reveals."
+Require-Pattern $manager 'if \(_visibility\.Update\(anyActive, invalidateInput\)\)[\s\S]*SetPreviewVisible\(anyActive\)' `
+    "Unchanged aggregate visibility must not cancel newer selection reads during content updates."
+Require-Pattern $mainWindow 'HidePreviewWindow\(\)[\s\S]*?RefreshVisibility\(invalidateInput: true\)' `
+    "Closing a slot must explicitly invalidate input even while other previews remain visible."
+Require-Pattern $manager '_inputEpoch\.Capture\(\)[\s\S]*TryEnqueue[\s\S]*!_inputEpoch\.IsCurrent\(epoch\)' `
+    "UI-queued native input must be rejected after a slot lifecycle change."
+Require-Pattern $native 'SWITCH_GENERATION\.fetch_add\(1, Ordering::SeqCst\);[\s\S]{0,350}SELECTION_CANCEL_GENERATION\.fetch_add\(1, Ordering::SeqCst\);\s*if !is_visible' `
+    "Closing one slot must cancel outstanding native selection reads even while another stays visible."
+if ($settings -match 'PreviewWindowLevel|AlwaysOnTop|Pinned') {
+    Add-Failure "Temporary window options must never enter persisted settings."
+}
+if ($mainWindow -match '_native\.SetPreviewVisible\(') {
+    Add-Failure "Individual windows must not overwrite the aggregate native visibility."
+}
+
+$keyboardHook = Read-RequiredFile "src/QuickLook.Next.App/PreviewKeyboardHook.cs"
+if ($keyboardHook.Length -gt 0) {
+    Require-Pattern $keyboardHook 'wParam == VK_SPACE[\s\S]*!ModifierKeyDown\(\)[\s\S]*_shouldHandleSpace\(\)[\s\S]*!_focusedControlUsesSpace\(\)[\s\S]*PreviewSpaceKeyHandler\.TryHandle\(msg, lParam,' `
+        "Space must use the tested message handler after modifier, visibility, and control-focus checks."
+    Require-Pattern $mainWindow 'RootGrid\.XamlRoot is \{ \} root \? FocusManager\.GetFocusedElement\(root\)' `
+        "Control focus must be queried in the current preview's XamlRoot."
+    Require-Pattern $mainWindow 'RootGrid\.PreviewKeyDown \+= OnPreviewSpaceKeyDown' `
+        "Space must tunnel before scrolling containers consume KeyDown."
+    Require-Pattern $mainWindow 'if \(_windowController\.HasWindowKeyboardFocus\)\s*return false;[\s\S]*PreviewKeyboardFocus\.UsesSpace' `
+        "Remembered XAML focus must not veto Space while the HWND itself owns keyboard input."
+    Require-Pattern $controller 'HasWindowKeyboardFocus\s*=>\s*GetFocus\(\)\s*==\s*_hwndProvider\(\)' `
+        "HWND keyboard ownership must come from current-thread GetFocus."
+    Require-Pattern $mainWindow 'if \(!e.KeyStatus.WasKeyDown\)\s*ClosePreviewFromKeyboard' `
+        "XAML repeats of the opening Space must not close a newly activated preview."
+    if ($keyboardHook -match '_spaceDownHandled') {
+        Add-Failure "Space must not depend on a key-up latch: hiding or changing focus can route key-up elsewhere."
+    }
+}
+
 if ($focusDocs.Length -gt 0) {
     Require-Pattern $focusDocs 'initial Explorer-open session transfers keyboard focus to[\s\S]*later Explorer-originated switches stay non-activating' `
         "The focus contract must activate the initial Space-open and preserve non-activating switches."

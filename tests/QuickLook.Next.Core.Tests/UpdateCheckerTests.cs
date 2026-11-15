@@ -1,11 +1,24 @@
 using System.Net;
 using QuickLook.Next.App;
+using QuickLook.Next.Core;
 using Xunit;
 
 namespace QuickLook.Next.Core.Tests;
 
 public sealed class UpdateCheckerTests
 {
+    [Fact]
+    public async Task Check_requests_only_the_fork_feed()
+    {
+        using var handler = new FeedHandler();
+        using var client = new HttpClient(handler);
+
+        await Assert.ThrowsAsync<FormatException>(() =>
+            UpdateChecker.CheckAsync(client, TimeSpan.FromSeconds(5), CancellationToken.None));
+
+        Assert.Equal(ProjectRepository.UpdateFeedUrl, handler.RequestUri?.AbsoluteUri);
+    }
+
     [Fact]
     public async Task Deadline_cancels_a_body_that_stalls_after_headers_and_disposes_it()
     {
@@ -51,6 +64,17 @@ public sealed class UpdateCheckerTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(body) });
+    }
+
+    private sealed class FeedHandler : HttpMessageHandler
+    {
+        public Uri? RequestUri { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestUri = request.RequestUri;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
+        }
     }
 
     private class NonSeekableBody(byte[] bytes) : MemoryStream(bytes)

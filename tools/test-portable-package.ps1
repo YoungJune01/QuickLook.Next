@@ -34,7 +34,14 @@ function Get-ProfileSnapshot {
         }
     }
     $runKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Run')
-    try { $snapshot['Run/QuickLookNext'] = if ($runKey) { $runKey.GetValue('QuickLookNext') } else { $null } }
+    try {
+        $snapshot['Run/QuickLookNext'] = if ($runKey) { $runKey.GetValue('QuickLookNext') } else { $null }
+        if ($runKey) {
+            foreach ($name in @($runKey.GetValueNames() | Where-Object { $_ -like 'QuickLookNext.Portable.*' } | Sort-Object)) {
+                $snapshot["Run/$name"] = $runKey.GetValue($name)
+            }
+        }
+    }
     finally { if ($runKey) { $runKey.Dispose() } }
     $shortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'QuickLook Next.lnk'
     $snapshot['Startup/QuickLook Next.lnk'] = if (Test-Path -LiteralPath $shortcut) {
@@ -43,7 +50,8 @@ function Get-ProfileSnapshot {
     return ($snapshot | ConvertTo-Json -Compress)
 }
 
-function Invoke-IsolatedProcess([string]$Executable, [string]$Arguments, [int]$ExpectedExit = 0) {
+function Invoke-IsolatedProcess([string]$Executable, [string]$Arguments, [int]$ExpectedExit = 0,
+    [bool]$ConfigurePortableEnvironment = $true) {
     $info = [Diagnostics.ProcessStartInfo]::new($Executable, $Arguments)
     $info.UseShellExecute = $false
     $info.CreateNoWindow = $true
@@ -56,11 +64,14 @@ function Invoke-IsolatedProcess([string]$Executable, [string]$Arguments, [int]$E
             [void]$info.Environment.Remove($key)
         }
     }
-    $info.Environment['DOTNET_ROOT'] = Join-Path $testRoot 'Runtime'
-    $info.Environment['DOTNET_ROOT_X64'] = Join-Path $testRoot 'Runtime'
-    $info.Environment['DOTNET_MULTILEVEL_LOOKUP'] = '0'
-    $info.Environment['DOTNET_ROLL_FORWARD'] = 'LatestPatch'
-    $info.Environment['PATH'] = (Join-Path $testRoot 'Runtime') + ';' + (Join-Path $testRoot 'App') + ";$env:SystemRoot\System32;$env:SystemRoot"
+    $info.Environment['PATH'] = "$env:SystemRoot\System32;$env:SystemRoot"
+    if ($ConfigurePortableEnvironment) {
+        $info.Environment['DOTNET_ROOT'] = Join-Path $testRoot 'Runtime'
+        $info.Environment['DOTNET_ROOT_X64'] = Join-Path $testRoot 'Runtime'
+        $info.Environment['DOTNET_MULTILEVEL_LOOKUP'] = '0'
+        $info.Environment['DOTNET_ROLL_FORWARD'] = 'LatestPatch'
+        $info.Environment['PATH'] = (Join-Path $testRoot 'Runtime') + ';' + (Join-Path $testRoot 'App') + ';' + $info.Environment['PATH']
+    }
     $info.Environment['TEMP'] = Join-Path $testRoot 'Data/Temp'
     $info.Environment['TMP'] = $info.Environment['TEMP']
     $process = [Diagnostics.Process]::Start($info)
@@ -96,13 +107,16 @@ if (-not $runtimes.Contains((Join-Path $testRoot 'Runtime/shared/Microsoft.NETCo
     throw "Runtime did not resolve inside the portable folder: $runtimes"
 }
 $null = Invoke-IsolatedProcess "$env:SystemRoot\System32\cmd.exe" ('/d /s /c ""' + (Join-Path $testRoot 'Start.cmd') + '" --smoke-portable"')
+$null = Invoke-IsolatedProcess "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    ('-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $testRoot 'Start.ps1') + '" -SmokePortable') `
+    -ConfigurePortableEnvironment $false
 $result = Get-Content -LiteralPath (Join-Path $testRoot 'Data/portable-check.json') -Raw | ConvertFrom-Json
 foreach ($name in @('SettingsDirectory', 'LogDirectory', 'PdfCacheDirectory', 'TemporaryDirectory', 'RuntimeDirectory')) {
     if (-not $result.$name.StartsWith($testRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
         throw "Storage/runtime escaped portable copy: $name"
     }
 }
-if (-not ($result.ParserHandlePreview -and $result.RasterHandshake -and $result.UiResources -and $result.AutoStartDisabled)) {
+if (-not ($result.ParserHandlePreview -and $result.RasterHandshake -and $result.UiResources -and $result.AutoStartAvailable)) {
     throw 'A portable host or startup check did not pass.'
 }
 

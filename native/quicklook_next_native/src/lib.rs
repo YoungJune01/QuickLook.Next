@@ -268,7 +268,8 @@ pub unsafe extern "C" fn ql_set_callback(cb: Option<Callback>) {
     }
 }
 
-/// Let the App tell native when the preview window is open. While visible, Space closes the preview.
+/// Let the App report whether any preview slot is active and cancel stale selection work at
+/// slot lifecycle transitions. Global Space requests OPEN; only the focused preview closes it.
 /// Selection changes are still accepted only when Explorer is the foreground window.
 #[no_mangle]
 pub extern "C" fn ql_set_preview_visible(visible: i32) {
@@ -278,8 +279,10 @@ pub extern "C" fn ql_set_preview_visible(visible: i32) {
         let visibility_generation =
             PREVIEW_VISIBILITY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
         SWITCH_GENERATION.fetch_add(1, Ordering::SeqCst);
+        // A slot may close while another pinned slot remains visible. Cancel its outstanding
+        // selection read without pretending that the entire preview pool has been hidden.
+        SELECTION_CANCEL_GENERATION.fetch_add(1, Ordering::SeqCst);
         if !is_visible {
-            SELECTION_CANCEL_GENERATION.fetch_add(1, Ordering::SeqCst);
             let tid = HOOK_TID.load(Ordering::SeqCst);
             if tid != 0 {
                 // SAFETY: This private message carries only an integer generation, not a pointer.
@@ -400,6 +403,8 @@ fn hook_thread(ready_tx: mpsc::SyncSender<bool>) {
             }
             match msg.message {
                 WM_QL_PREVIEW => {
+                    // The App owns the bounded window pool: OPEN can add a window when all
+                    // active previews are pinned, and must never toggle a background preview.
                     invalidate_switch_timer();
                     request_selection("OPEN");
                 }
@@ -569,6 +574,10 @@ fn esc_close_should_fire(
     explorer_foreground && preview_visible && !foreground_text_input
 }
 
+fn space_open_should_fire(explorer_foreground: bool, foreground_text_input: bool) -> bool {
+    explorer_foreground && !foreground_text_input
+}
+
 /// Keep this callback cheap: classify the key, post a thread message, return immediately.
 /// No allocations, no locks, no callback into managed code — all of that happens on the pump thread.
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -587,19 +596,15 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         let text_input_active = explorer_foreground && unsafe { foreground_text_input_active() };
 
         if kb.vkCode == VK_SPACE_U32 {
-            if is_down
-                && explorer_foreground
+            // Observe the physical press even outside Explorer so changing focus while holding
+            // Space cannot turn an auto-repeat into a fresh opening gesture.
+            let first_press = is_down && !SPACE_HELD.swap(true, Ordering::SeqCst);
+            if first_press
                 && bare_key
-                && !text_input_active
-                && !SPACE_HELD.swap(true, Ordering::SeqCst)
+                && space_open_should_fire(explorer_foreground, text_input_active)
             {
-                let message = if PREVIEW_VISIBLE.load(Ordering::SeqCst) {
-                    WM_QL_CLOSE
-                } else {
-                    WM_QL_PREVIEW
-                };
                 // SAFETY: The message carries only integer values; no borrowed pointer escapes.
-                let _ = unsafe { PostThreadMessageW(tid, message, WPARAM(0), LPARAM(0)) };
+                let _ = unsafe { PostThreadMessageW(tid, WM_QL_PREVIEW, WPARAM(0), LPARAM(0)) };
             } else if is_up {
                 SPACE_HELD.store(false, Ordering::SeqCst);
             }
@@ -3270,6 +3275,19 @@ mod tests {
             );
             assert_eq!(result.is_err(), fail);
             assert_eq!(released.load(Ordering::SeqCst), 3);
+        }
+    }
+
+    #[test]
+    fn space_only_requests_open_from_explorer_content() {
+        for explorer_foreground in [false, true] {
+            for text_input in [false, true] {
+                assert_eq!(
+                    space_open_should_fire(explorer_foreground, text_input),
+                    explorer_foreground && !text_input,
+                    "foreground Explorer={explorer_foreground}, text={text_input}"
+                );
+            }
         }
     }
 
@@ -6158,8 +6176,9 @@ mod handle_v2_tests {
         let bytes = zip_bytes(&[
             (
                 "word/document.xml",
-                br#"<w:document xmlns:w="w"><w:body><w:p><w:r><w:t>Lazy image</w:t></w:r></w:p></w:body></w:document>"#,
+                br#"<w:document xmlns:w="w" xmlns:a="a" xmlns:r="r"><w:body><w:p><w:r><w:t>Lazy image</w:t><w:drawing><a:blip r:embed="rId1"/></w:drawing></w:r></w:p></w:body></w:document>"#,
             ),
+            ("word/_rels/document.xml.rels", br#"<Relationships><Relationship Id="rId1" Target="media/image1.png"/></Relationships>"#),
             ("word/media/image1.png", image.as_slice()),
             ("word/media/../traversal.png", b"unsafe"),
             ("/word/media/absolute.png", b"unsafe"),

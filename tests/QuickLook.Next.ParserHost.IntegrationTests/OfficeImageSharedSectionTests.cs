@@ -328,7 +328,22 @@ public sealed class OfficeImageSharedSectionTests
         WriteEntry(
             archive,
             "word/document.xml",
-            "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Office shared image marker</w:t></w:r></w:p></w:body></w:document>");
+            """
+            <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                <w:body><w:p><w:r><w:t>Office shared image marker</w:t>
+                    <w:drawing><a:blip r:embed="rId1"/></w:drawing>
+                </w:r></w:p></w:body>
+            </w:document>
+            """);
+        WriteEntry(
+            archive,
+            "word/_rels/document.xml.rels",
+            """<Relationships><Relationship Id="rId1" Target="media/image1.png"/></Relationships>""");
+        // A real media entry without a document anchor must not become a published image lease.
+        using (Stream orphan = archive.CreateEntry("word/media/not-published.png").Open())
+            orphan.Write(TestPng);
         using Stream image = archive.CreateEntry(
             "word/media/image1.png",
             CompressionLevel.NoCompression).Open();

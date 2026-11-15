@@ -175,12 +175,13 @@
   <data name="SettingsGeneralDescription" xml:space="preserve"><value>Choose how QuickLook Next behaves in Windows.</value></data>
   <data name="SettingsAutoStart" xml:space="preserve"><value>Start with Windows</value></data>
   <data name="SettingsAutoStartDescription" xml:space="preserve"><value>Keep QuickLook Next ready in the notification area after you sign in.</value></data>
-  <data name="SettingsWindowLevel" xml:space="preserve"><value>Preview window level</value></data>
-  <data name="SettingsWindowLevelDescription" xml:space="preserve"><value>Standard stays above Explorer only while needed. Always on top keeps the preview above other apps until it closes.</value></data>
-  <data name="SettingsWindowLevelStandard" xml:space="preserve"><value>Standard</value></data>
-  <data name="SettingsWindowLevelAlwaysOnTop" xml:space="preserve"><value>Always on top</value></data>
+  <data name="PreviewPin" xml:space="preserve"><value>Pin this preview (keep its file)</value></data>
+  <data name="PreviewUnpin" xml:space="preserve"><value>Unpin this preview</value></data>
+  <data name="PreviewAlwaysOnTop" xml:space="preserve"><value>Keep this window on top</value></data>
+  <data name="PreviewDisableAlwaysOnTop" xml:space="preserve"><value>Stop keeping this window on top</value></data>
+  <data name="PreviewWindowLimitMessage" xml:space="preserve"><value>All three preview windows are pinned. Close one or unpin it before previewing another file.</value></data>
   <data name="SettingsCloseOnFocusLoss" xml:space="preserve"><value>Close preview when focus moves away</value></data>
-  <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve"><value>Hide the preview after another app becomes active. Settings and QuickLook Next dialogs do not close it.</value></data>
+  <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve"><value>Hide unpinned previews after another app becomes active. Settings and QuickLook Next dialogs do not close them.</value></data>
   <data name="SettingsLanguage" xml:space="preserve"><value>Language</value></data>
   <data name="SettingsLanguageDescription" xml:space="preserve"><value>Choose the language used by the app and tray menu.</value></data>
   <data name="SettingsSystemLanguage" xml:space="preserve"><value>Use system language</value></data>
@@ -207,7 +208,7 @@
   <data name="SettingsAbout" xml:space="preserve"><value>About</value></data>
   <data name="SettingsAboutDescription" xml:space="preserve"><value>Version, project source, and release information.</value></data>
   <data name="SettingsVersionFormat" xml:space="preserve"><value>Version {0}</value></data>
-  <data name="SettingsProjectSource" xml:space="preserve"><value>QuickLook Next is an open-source project developed on GitHub. Builds published by this project originate from the repository below.</value></data>
+  <data name="SettingsProjectSource" xml:space="preserve"><value>Independently maintained by YoungJune01. Thank you to SherlockChiang, the original author, and all upstream contributors. Source code, downloads, and update checks use this fork's GitHub repository.</value></data>
   <data name="SettingsOpenGitHub" xml:space="preserve"><value>Open GitHub project</value></data>
   <data name="SettingsViewReleases" xml:space="preserve"><value>View releases</value></data>
   <data name="SettingsCheckForUpdates" xml:space="preserve"><value>Check for updates</value></data>
@@ -650,5 +651,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostics copied.</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>File exceeds preview limits</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>This file contains too much data or its decompressed content exceeds preview limits. Use Open File to view the full contents in its associated app.</value></data>
-  <data name="PortableAutoStartDescription" xml:space="preserve"><value>Disabled in portable mode to keep startup settings and files on this drive.</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>Start this portable copy when you sign in. Creates a startup entry for this folder. Turn it off before moving or deleting the folder.</value></data>
 </root>

@@ -99,7 +99,10 @@ pub(super) fn parse_relationships(
         context.check_xml_event(event_count)?;
         match event {
             Ok(Event::Empty(e)) | Ok(Event::Start(e)) => {
-                if local_xml_name(e.name().as_ref()) == "relationship" {
+                if local_xml_name(e.name().as_ref()) == "relationship"
+                    && !attr_value(&e, "targetmode")
+                        .is_some_and(|mode| mode.eq_ignore_ascii_case("external"))
+                {
                     if let (Some(id), Some(target)) =
                         (attr_value(&e, "id"), attr_value(&e, "target"))
                     {

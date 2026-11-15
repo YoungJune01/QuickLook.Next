@@ -1,40 +1,30 @@
 # QuickLook Next
 
-[简体中文](README_CN.md) · [Local maintenance guide (中文)](docs/fork-maintenance.md)
+[简体中文](README_CN.md) · [Downloads](https://github.com/YoungJune01/QuickLook.Next/releases) · [Acknowledgements](ACKNOWLEDGEMENTS.md)
 
-A Windows x64 file previewer maintained locally from the upstream `1.0.4`
-source snapshot. Select a file on the desktop or in the active Explorer tab and
-press **Space**. The reported desktop, Explorer-tab, and Excel preview fixes
-have passed owner acceptance.
+A Windows x64 file previewer. Select a file on the desktop or in the active
+Explorer tab and press **Space**.
 
-## Run and build
+This is an independently maintained edition by **YoungJune01**, based on the
+upstream `1.0.4` source snapshot. Thank you to **SherlockChiang**, the original
+author of [QuickLook.Next](https://github.com/SherlockChiang/QuickLook.Next), and
+all upstream contributors. This repository manages its own source and releases.
+Feature development is currently paused; issues and release maintenance are
+managed here.
 
-For another Windows x64 computer, extract the complete portable ZIP and run
-`Start.cmd`. It carries its runtime and keeps application data in `Data/`.
-See [portable use and packaging](docs/portable.md). Exit other QuickLook instances
-first. The previous local launcher, `artifacts/Start-MyQuickLook.cmd`, is retained
-for rollback; rebuilding source does not automatically update existing packages.
+## Download and use
 
-On Windows, prepare the pinned .NET SDK, Rust MSVC toolchain, Desktop C++ tools,
-and Windows SDK described in [CONTRIBUTING.md](CONTRIBUTING.md), then run:
+Download `QuickLook.Next-<version>-portable-win-x64.zip` from this repository's
+[Releases](https://github.com/YoungJune01/QuickLook.Next/releases), extract the
+complete ZIP to a writable local folder, and run `Start.cmd`. Exit other
+QuickLook instances first. The package carries its runtime and keeps settings
+and cache in `Data/`; no developer SDK or signing certificate is required.
 
-```powershell
-pwsh -NoProfile -File tools/doctor.ps1
-pwsh -NoProfile -File build.ps1 -Test
-```
-
-On this computer, first load `. .\artifacts\tools\Enter-Dev.ps1` in PowerShell.
-For full release checks without signing or installation:
-
-```powershell
-pwsh -NoProfile -File tools/release.ps1 -SkipPackage
-```
-
-`tools/pack-portable.ps1` builds the complete portable ZIP from tested outputs;
-`tools/pack-release.ps1` assembles the base release payload. Both retain licenses
-and notices. Optional signed MSIX sideload tooling remains in
-`packaging/` and `tools/`; it needs your own signing setup. No Store submission,
-certification, or Partner Center configuration is required for local use.
+Settings → About → Check for updates reads this repository's release feed.
+It reports available versions; download and replacement are manual. To update,
+exit the old copy, extract the new ZIP to a new folder, and copy the old `Data/`
+to preserve settings. Disable the old folder's startup entry before moving it,
+then enable startup in the new copy if desired. See [portable use](docs/portable.md).
 
 ## Features and controls
 
@@ -45,29 +35,44 @@ certification, or Partner Center configuration is required for local use.
 - `Space`: toggle preview; `Esc`: close; `F5`: reload; `F11`: full screen.
 - Image wheel or `+`/`-`: zoom; `Home` or `Ctrl+0`: reset; `Ctrl+F`: text search.
 
-Excel uses a fixed footer for sheet selection and preserves normal row height,
-blank cells, and merged regions. Previews retain at most 48 rows, 32 columns,
-and six sheets. Oversized worksheet XML shows an explanatory error and an Open
-File action. Office previews do not execute macros or recalculate formulas.
-Some image/media formats require optional Windows codecs.
+This edition includes desktop/Explorer selection fixes, workbook row height and
+sheet controls, blank/merged cell preservation, multiple preview windows,
+DOCX text/image order, GBK tables, and portable startup support.
+Excel previews retain at most 48 rows, 32 columns, and six sheets. Office
+previews do not execute macros or recalculate formulas. Complex Office layouts
+are approximate. Some image/media formats require optional Windows codecs.
 
-## Maintenance and architecture
+## Source and maintenance
 
-`src/` contains the WinUI shell, shared models, and ParserHost, RasterHost, and
-ShellBroker. `native/quicklook_next_native/` owns probing and bounded structured
-parsing; `tests/`, `testdata/`, and `tools/` provide verification and fixtures.
-The retired website, legacy plugins, and publication history remain in Git.
+| Path | Purpose |
+|---|---|
+| `src/` | WinUI shell, shared models, and isolated preview hosts |
+| `native/` | Rust probing, bounded parsers, and native interop |
+| `tests/`, `testdata/` | Regression tests and redistributable fixtures |
+| `tools/`, `packaging/` | Build, verification, and packaging |
+| `.github/` | CI, dependency updates, and release workflows |
+| `docs/` | Architecture decisions, verification evidence, and maintenance guides |
 
-[AGENTS.md](AGENTS.md) and the [ADRs](docs/adr/README.md) define architecture
-boundaries. See [review status](docs/review-readiness.md),
-[manual acceptance](docs/desktop-regression-checklist.md), and
-[remaining work](docs/implementation-todo.md). Report bugs with the commit,
-file type/size, reproduction steps, and expected/actual behavior; use synthetic
-samples and keep private documents out of the repository.
+Build on Windows x64 with the pinned toolchains in
+[CONTRIBUTING.md](CONTRIBUTING.md):
 
-## Security and license
+```powershell
+pwsh -NoProfile -File tools/doctor.ps1
+pwsh -NoProfile -File build.ps1 -Test
+```
 
-Follow [SECURITY.md](SECURITY.md) for private vulnerability reporting and
-[CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements.
-Original source and assets use the [MIT License](LICENSE); bundled dependencies
-retain their own licenses and notices. Upstream project: `SherlockChiang/QuickLook.Next`.
+See [GitHub release management](docs/github-release.md) for portable releases,
+and [maintenance guidance](docs/fork-maintenance.md) for the repository map.
+Architecture rules are in [AGENTS.md](AGENTS.md) and the [ADRs](docs/adr/README.md).
+Current evidence is in [review status](docs/review-readiness.md);
+remaining work is in the [maintenance queue](docs/implementation-todo.md).
+Local toolchains, logs, build caches, private samples, and release ZIPs are
+excluded from Git. Release binaries belong in Releases.
+
+## License and reporting
+
+The original copyright notice and [MIT License](LICENSE) are retained.
+Dependencies retain their own licenses and notices. See
+[ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for project attribution,
+[SECURITY.md](SECURITY.md) for private vulnerability reporting, and
+[CONTRIBUTING.md](CONTRIBUTING.md) for contributions.

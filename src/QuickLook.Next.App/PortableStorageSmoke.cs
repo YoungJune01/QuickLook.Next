@@ -23,8 +23,8 @@ internal static class PortableStorageSmoke
             if (!AppSettings.SaveTextLineNumbers(true))
                 throw new IOException("Portable settings could not be saved.");
             FirstRunExperience.MarkShown();
-            if (FirstRunExperience.ShouldShow || AutoStart.IsSupported
-                || AutoStart.SetEnabledAsync(true).GetAwaiter().GetResult())
+            // Validate availability without enabling startup or touching any startup entry.
+            if (FirstRunExperience.ShouldShow || !AutoStart.IsSupported)
                 throw new InvalidOperationException("Portable state/startup policy is invalid.");
             storage.EnsureDirectory(storage.PdfCacheDirectory);
             DiagLog.Init("portable-smoke.log");
@@ -44,7 +44,7 @@ internal static class PortableStorageSmoke
                 ParserHandlePreview = true,
                 RasterHandshake = true,
                 UiResources = true,
-                AutoStartDisabled = !AutoStart.IsSupported,
+                AutoStartAvailable = AutoStart.IsSupported,
             }, new JsonSerializerOptions { WriteIndented = true }));
             return 0;
         }

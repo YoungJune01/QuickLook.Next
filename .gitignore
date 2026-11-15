@@ -30,6 +30,12 @@ dist*/
 msix/
 installer/
 .signing/
+*.pfx
+*.p12
+*.key
+.env
+.env.*
+!.env.example
 .mimosa/
 # Legacy local scratch guide; repository policy lives in tracked AGENTS.md.
 agent.md

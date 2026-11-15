@@ -8,8 +8,6 @@ public sealed record UpdateMetadata(
     int MinimumWindowsBuild,
     DateTimeOffset PublishedAt)
 {
-    private const string RepositoryPrefix = "https://github.com/SherlockChiang/QuickLook.Next/releases/download/";
-
     public static UpdateMetadata Parse(ReadOnlyMemory<byte> utf8)
     {
         try
@@ -42,13 +40,14 @@ public sealed record UpdateMetadata(
             throw new FormatException("Unsupported update metadata.");
         if (!ReleaseVersion.TryParse(versionText, out ReleaseVersion? version)
             || tag != "v" + versionText
-            || file != $"QuickLook.Next-Installer-{versionText}-win-x64.zip"
+            || (file != $"QuickLook.Next-Installer-{versionText}-win-x64.zip"
+                && file != $"QuickLook.Next-{versionText}-portable-win-x64.zip")
             || sha256.Length != 64
             || sha256.Any(static character => !Uri.IsHexDigit(character))
             || !DateTimeOffset.TryParse(publishedAtText, out DateTimeOffset publishedAt)
             || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri? uri)
             || uri.Scheme != Uri.UriSchemeHttps
-            || !downloadUrl.Equals($"{RepositoryPrefix}{tag}/{file}", StringComparison.Ordinal))
+            || !downloadUrl.Equals($"{ProjectRepository.DownloadPrefix}{tag}/{file}", StringComparison.Ordinal))
             throw new FormatException("Invalid update metadata.");
         return new UpdateMetadata(version!, versionText, minimumWindowsBuild, publishedAt);
     }

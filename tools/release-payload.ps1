@@ -212,6 +212,10 @@ function Get-QuickLookReleasePayload {
         -RelativePath "LICENSE" `
         -Replace
     Add-PayloadFile `
+        -SourcePath (Join-Path $Root "ACKNOWLEDGEMENTS.md") `
+        -RelativePath "ACKNOWLEDGEMENTS.md" `
+        -Replace
+    Add-PayloadFile `
         -SourcePath (
             Join-Path $ArtifactsDirectory "THIRD-PARTY-NOTICES.txt") `
         -RelativePath "THIRD-PARTY-NOTICES.txt" `

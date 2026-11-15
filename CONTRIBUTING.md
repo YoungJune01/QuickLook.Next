@@ -2,6 +2,10 @@
 
 ## Current Contribution Status
 
+Feature development is currently paused. Bug reports and focused maintenance
+contributions can be tracked in this repository. Portable release instructions
+are in [docs/github-release.md](docs/github-release.md).
+
 QuickLook Next is licensed under the [MIT License](LICENSE). Bug reports, feature requests, design
 discussion, documentation, translations, tests, and focused code contributions are welcome.
 

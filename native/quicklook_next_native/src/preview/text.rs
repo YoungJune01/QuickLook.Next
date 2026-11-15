@@ -215,7 +215,8 @@ pub(crate) fn render_text_reader<R: Read>(
         return String::new();
     }
 
-    // BOM-aware Unicode first, then strict UTF-8 and Windows-1252 for legacy configuration files.
+    // Unicode takes priority. Chinese delimited exports commonly use GBK without a BOM;
+    // require a strict decode and Chinese evidence before the legacy Western fallback.
     let text = if bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
         encoding_rs::UTF_8.decode(&bytes[3..]).0
     } else if bytes.len() >= 2 && bytes[..2] == [0xFF, 0xFE] {
@@ -224,6 +225,11 @@ pub(crate) fn render_text_reader<R: Read>(
         encoding_rs::UTF_16BE.decode(&bytes[2..]).0
     } else if std::str::from_utf8(&bytes).is_ok() {
         encoding_rs::UTF_8.decode(&bytes).0
+    } else if let Some(text) = (language == "csv" || language == "tsv")
+        .then(|| decode_gbk_table(&bytes, truncated))
+        .flatten()
+    {
+        text
     } else {
         encoding_rs::WINDOWS_1252.decode(&bytes).0
     };
@@ -269,6 +275,42 @@ pub(crate) fn render_text_reader<R: Read>(
         table: None,
         markdown: None,
     })
+}
+
+fn decode_gbk_table(bytes: &[u8], truncated: bool) -> Option<std::borrow::Cow<'_, str>> {
+    // Isolated Western accents followed by ASCII letters can also form valid GBK pairs.
+    // Require repeated high-byte pairs as well as decoded Chinese text evidence.
+    if bytes
+        .windows(2)
+        .filter(|pair| pair[0] >= 0x81 && pair[1] >= 0x80)
+        .take(2)
+        .count()
+        < 2
+    {
+        return None;
+    }
+    let text = encoding_rs::GBK
+        .decode_without_bom_handling_and_without_replacement(bytes)
+        .or_else(|| {
+            // Only a bounded prefix may end halfway through a double-byte character.
+            // Never discard a malformed byte from a complete file.
+            (truncated && bytes.last().is_some_and(|byte| matches!(byte, 0x81..=0xfe))).then(
+                || {
+                    encoding_rs::GBK.decode_without_bom_handling_and_without_replacement(
+                        &bytes[..bytes.len() - 1],
+                    )
+                },
+            )?
+        })?;
+    let mut chinese = 0usize;
+    let mut non_ascii = 0usize;
+    for ch in text.chars().filter(|ch| !ch.is_ascii()) {
+        non_ascii += 1;
+        if matches!(ch, '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}') {
+            chinese += 1;
+        }
+    }
+    (chinese >= 2 && chinese * 2 >= non_ascii).then_some(text)
 }
 
 fn render_markdown_json(
@@ -1014,6 +1056,65 @@ fn is_probably_utf16_text(bytes: &[u8], little_endian: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn delimited_preview_decodes_gbk_exports_without_bom() {
+        for (name, separator) in [("report.csv", ','), ("report.tsv", '\t')] {
+            let source = format!("日期{separator}人群名字{separator}花费\n20261107至20261113{separator}\"中文,人群\"{separator}47.28\n");
+            let (bytes, _, errors) = encoding_rs::GBK.encode(&source);
+            assert!(!errors);
+            let json = render_text_reader(&mut std::io::Cursor::new(bytes), name, None);
+            assert!(json.contains("日期"));
+            assert!(json.contains("人群名字"));
+            assert!(json.contains("20261107至20261113"));
+            assert!(json.contains("中文,人群"));
+            assert!(json.contains("47.28"));
+            assert!(!json.contains('\u{fffd}'));
+        }
+    }
+
+    #[test]
+    fn delimited_unicode_and_western_encodings_keep_priority() {
+        let source = "日期,花费\n中文,47.28\n";
+        let mut variants = vec![source.as_bytes().to_vec()];
+        variants.push([&[0xef, 0xbb, 0xbf][..], source.as_bytes()].concat());
+        for (bom, little_endian) in [([0xff, 0xfe], true), ([0xfe, 0xff], false)] {
+            let mut bytes = bom.to_vec();
+            for unit in source.encode_utf16() {
+                bytes.extend_from_slice(&if little_endian {
+                    unit.to_le_bytes()
+                } else {
+                    unit.to_be_bytes()
+                });
+            }
+            variants.push(bytes);
+        }
+        for bytes in variants {
+            let json = render_text_reader(&mut std::io::Cursor::new(bytes), "report.csv", None);
+            assert!(json.contains("日期"));
+            assert!(json.contains("中文"));
+        }
+        let western = b"name,price\ncaf\xe9,1\nna\xefve,2\ncaf\xe9s th\xe9s,3\n";
+        let json = render_text_reader(&mut &western[..], "report.csv", None);
+        assert!(json.contains("café"));
+        assert!(json.contains("naïve"));
+        assert!(json.contains("cafés thés"));
+        let ambiguous_western = b"name\ncaf\xe9s th\xe9s\n";
+        let json = render_text_reader(&mut &ambiguous_western[..], "report.csv", None);
+        assert!(json.contains("cafés thés"));
+    }
+
+    #[test]
+    fn gbk_prefix_may_drop_only_a_truncated_final_lead_byte() {
+        let (bytes, _, _) = encoding_rs::GBK.encode("日期,中文");
+        let prefix = &bytes[..bytes.len() - 1];
+        assert_eq!(decode_gbk_table(prefix, true).as_deref(), Some("日期,中"));
+        assert!(decode_gbk_table(prefix, false).is_none());
+        let mut malformed = prefix.to_vec();
+        malformed.extend_from_slice(b"\x00,");
+        assert!(decode_gbk_table(&malformed, true).is_none());
+        assert!(decode_gbk_table(&[], true).is_none());
+    }
 
     #[test]
     fn text_preview_decodes_windows_1252_config() {

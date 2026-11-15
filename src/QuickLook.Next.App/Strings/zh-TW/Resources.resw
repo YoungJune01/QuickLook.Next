@@ -144,23 +144,16 @@
   <data name="SettingsAutoStartDescription" xml:space="preserve">
     <value>登入後，讓 QuickLook Next 持續在通知區域中待命。</value>
   </data>
-  <data name="SettingsWindowLevel" xml:space="preserve">
-    <value>預覽視窗層級</value>
-  </data>
-  <data name="SettingsWindowLevelDescription" xml:space="preserve">
-    <value>標準模式只在需要時將視窗置於檔案總管上方；永遠置頂會讓預覽在關閉前保持在其他應用程式上方。</value>
-  </data>
-  <data name="SettingsWindowLevelStandard" xml:space="preserve">
-    <value>標準</value>
-  </data>
-  <data name="SettingsWindowLevelAlwaysOnTop" xml:space="preserve">
-    <value>永遠置頂</value>
-  </data>
+  <data name="PreviewPin" xml:space="preserve"><value>固定此預覽（保留目前檔案）</value></data>
+  <data name="PreviewUnpin" xml:space="preserve"><value>取消固定此預覽</value></data>
+  <data name="PreviewAlwaysOnTop" xml:space="preserve"><value>將此視窗置頂</value></data>
+  <data name="PreviewDisableAlwaysOnTop" xml:space="preserve"><value>取消此視窗置頂</value></data>
+  <data name="PreviewWindowLimitMessage" xml:space="preserve"><value>三個預覽視窗均已固定。請先關閉一個視窗或取消固定，再預覽其他檔案。</value></data>
   <data name="SettingsCloseOnFocusLoss" xml:space="preserve">
     <value>焦點移開時關閉預覽</value>
   </data>
   <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve">
-    <value>其他應用程式取得焦點後隱藏預覽；QuickLook Next 的設定和對話框不會觸發關閉。</value>
+    <value>其他應用程式取得焦點後隱藏未固定的預覽；QuickLook Next 的設定和對話框不會觸發關閉。</value>
   </data>
   <data name="SettingsLanguage" xml:space="preserve">
     <value>語言</value>
@@ -241,7 +234,7 @@
     <value>版本 {0}</value>
   </data>
   <data name="SettingsProjectSource" xml:space="preserve">
-    <value>QuickLook Next 是在 GitHub 上開發的開放原始碼專案。本專案發行的組建來自下方的程式碼存放庫。</value>
+    <value>本版本由 YoungJune01 獨立維護。感謝原作者 SherlockChiang 及所有上游貢獻者。原始碼、下載與更新檢查使用本儲存庫的 GitHub 來源。</value>
   </data>
   <data name="SettingsOpenGitHub" xml:space="preserve">
     <value>開啟 GitHub 專案</value>
@@ -1080,5 +1073,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>診斷資訊已複製。</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>檔案過大，無法預覽</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此檔案的資料量或解壓縮後的內容超出預覽限制。請按一下「開啟檔案」，使用關聯應用程式查看完整內容。</value></data>
-  <data name="PortableAutoStartDescription" xml:space="preserve"><value>便攜模式不啟用開機自動啟動，避免寫入登錄與系統啟動目錄。</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>登入 Windows 時啟動此便攜版。開啟後會為目前資料夾建立啟動項；移動或刪除資料夾前請先關閉。</value></data>
 </root>

@@ -4,21 +4,18 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use zip::ZipArchive;
 
+mod layout;
 #[cfg(test)]
 mod tests;
+
+use layout::build_docx_layout;
 
 use super::super::{
     attr_value, file_name, local_xml_name, normalize_preview_lines, office_error_json,
     office_preview_json_with_layout, office_text_json, read_office_zip_text, truncate_preview_text,
-    xml_general_ref, xml_unescape_bytes, OfficeContext, OfficeLayoutDto, OfficeLayoutItemDto,
-    OfficePageDto, OfficeResult, MAX_OFFICE_LAYOUT_IMAGES, MAX_OFFICE_ZIP_ENTRIES,
+    xml_general_ref, xml_unescape_bytes, OfficeContext, OfficeResult, MAX_OFFICE_ZIP_ENTRIES,
 };
-use super::image::{
-    append_office_media_summary, image_mime_type, office_media_entries,
-    read_office_layout_image_reference,
-};
-
-const MAX_OFFICE_DOCUMENT_PAGES: usize = 8;
+use super::image::{append_office_media_summary, office_media_entries};
 
 pub(in crate::preview) fn render_docx<R: Read + Seek>(
     path: &str,
@@ -40,7 +37,7 @@ pub(in crate::preview) fn render_docx<R: Read + Seek>(
     };
     let header_footer_text = extract_docx_header_footer_text(context, zip, &header_footer_entries)?;
     let body = extract_wordprocessing_text(context, &xml)?;
-    let layout = build_docx_layout(context, zip, &body, &media_entries)?;
+    let layout = build_docx_layout(context, zip, &xml)?;
     let mut text = format!("Name: {filename}\nKind: Word document\n");
     append_office_media_summary(&mut text, &media_entries);
     if !header_footer_text.is_empty() {
@@ -86,152 +83,6 @@ pub(in crate::preview) fn render_odf<R: Read + Seek>(
             truncate_preview_text(&body)
         ),
     ))
-}
-
-fn build_docx_layout<R: Read + Seek>(
-    context: &mut OfficeContext,
-    zip: &mut ZipArchive<R>,
-    body: &str,
-    media_entries: &[String],
-) -> OfficeResult<Option<OfficeLayoutDto>> {
-    let page_width = 760.0;
-    let page_height = 980.0;
-    let margin = 58.0;
-    let mut pages = Vec::new();
-    let mut items = Vec::new();
-    let mut page_index = 1usize;
-    let mut y = margin;
-    let mut has_layout_content = false;
-
-    for paragraph in body.lines().map(str::trim).filter(|line| !line.is_empty()) {
-        let clipped_char_count = paragraph.chars().take(420).count();
-        let line_count = (clipped_char_count as f64 / 72.0).ceil().clamp(1.0, 5.0);
-        let height = 24.0 * line_count + 10.0;
-        if y + height > page_height - margin {
-            if page_index <= MAX_OFFICE_DOCUMENT_PAGES && !items.is_empty() {
-                push_docx_page(&mut pages, page_index, page_width, page_height, items);
-            }
-            page_index += 1;
-            items = Vec::new();
-            y = margin;
-        }
-
-        has_layout_content = true;
-        if page_index <= MAX_OFFICE_DOCUMENT_PAGES {
-            let clipped = paragraph.chars().take(420).collect::<String>();
-            items.push(OfficeLayoutItemDto {
-                kind: "text".to_string(),
-                x: margin,
-                y,
-                width: page_width - margin * 2.0,
-                height,
-                z_index: items.len(),
-                text: Some(clipped),
-                shape: None,
-                placeholder_type: None,
-                bold: false,
-                italic: false,
-                font_size: None,
-                fill_color: None,
-                stroke_color: None,
-                image_name: None,
-                mime_type: None,
-                image_ref: None,
-                image_byte_length: None,
-            });
-        }
-        y += height + 6.0;
-    }
-
-    let mut image_budget = MAX_OFFICE_LAYOUT_IMAGES.min(6);
-    for entry in media_entries.iter().take(6) {
-        if image_budget == 0 {
-            break;
-        }
-        let Some((image_ref, image_byte_length)) =
-            read_office_layout_image_reference(context, zip, entry, "word/media/")?
-        else {
-            continue;
-        };
-        if y + 180.0 > page_height - margin {
-            if page_index <= MAX_OFFICE_DOCUMENT_PAGES && !items.is_empty() {
-                push_docx_page(&mut pages, page_index, page_width, page_height, items);
-            }
-            page_index += 1;
-            items = Vec::new();
-            y = margin;
-        }
-        let lower = image_ref.to_ascii_lowercase();
-        image_budget = image_budget.saturating_sub(1);
-        has_layout_content = true;
-        if page_index <= MAX_OFFICE_DOCUMENT_PAGES {
-            items.push(OfficeLayoutItemDto {
-                kind: "image".to_string(),
-                x: margin,
-                y,
-                width: 260.0,
-                height: 170.0,
-                z_index: items.len(),
-                text: None,
-                shape: None,
-                placeholder_type: None,
-                bold: false,
-                italic: false,
-                font_size: None,
-                fill_color: None,
-                stroke_color: None,
-                image_name: Some(
-                    image_ref
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(image_ref.as_str())
-                        .to_string(),
-                ),
-                mime_type: image_mime_type(&lower).map(str::to_string),
-                image_ref: Some(image_ref),
-                image_byte_length: Some(image_byte_length),
-            });
-        }
-        y += 188.0;
-    }
-
-    if !has_layout_content {
-        return Ok(None);
-    }
-    if page_index <= MAX_OFFICE_DOCUMENT_PAGES && !items.is_empty() {
-        push_docx_page(&mut pages, page_index, page_width, page_height, items);
-    }
-
-    let represented_page_count = pages.len();
-    Ok(Some(OfficeLayoutDto {
-        layout_kind: "document".to_string(),
-        width: page_width,
-        height: page_height,
-        represented_page_count,
-        total_page_count: page_index.max(represented_page_count),
-        page_limit: MAX_OFFICE_DOCUMENT_PAGES,
-        pages,
-    }))
-}
-
-fn push_docx_page(
-    pages: &mut Vec<OfficePageDto>,
-    page_index: usize,
-    width: f64,
-    height: f64,
-    items: Vec<OfficeLayoutItemDto>,
-) {
-    pages.push(OfficePageDto {
-        title: format!("Page {page_index}"),
-        index: page_index,
-        width,
-        height,
-        background_color: Some("#FFFFFF".to_string()),
-        freeze_rows: None,
-        freeze_columns: None,
-        cells: Vec::new(),
-        items,
-    });
 }
 
 fn docx_header_footer_entries<R: Read + Seek>(

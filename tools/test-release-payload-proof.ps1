@@ -94,6 +94,7 @@ try {
         Set-FixtureFile (Join-Path $brokerOutput $name) $name
     }
     Set-FixtureFile (Join-Path $fixtureRoot "LICENSE") "license"
+    Set-FixtureFile (Join-Path $fixtureRoot "ACKNOWLEDGEMENTS.md") "acknowledgements"
     Set-FixtureFile (
         Join-Path $artifacts "THIRD-PARTY-NOTICES.txt") "notices"
 
@@ -111,6 +112,7 @@ try {
             "RasterHost/QuickLook.Next.Contracts.dll",
             "ParserHost/QuickLook.Next.ParserHost.exe",
             "ParserHost/QuickLook.Next.Core.dll",
+            "ACKNOWLEDGEMENTS.md",
             "THIRD-PARTY-NOTICES.txt"))
     {
         if ($paths -notcontains $requiredPath) {

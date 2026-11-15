@@ -8,6 +8,8 @@ use super::{
     extract_wordprocessing_text, OfficeContext,
 };
 
+mod layout;
+
 extern "C" fn always_cancel() -> bool {
     true
 }
@@ -24,12 +26,17 @@ fn docx_layout_reports_represented_total_and_limit_counts() {
     cursor.set_position(0);
     let mut zip = ZipArchive::new(cursor).expect("empty ZIP archive");
     let body = (0..70)
-        .map(|index| format!("{index:02} {}", "x".repeat(420)))
+        .map(|index| {
+            format!(
+                "<w:p><w:r><w:t>{index:02} {}</w:t></w:r></w:p>",
+                "x".repeat(420)
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
     let mut context = test_office_context();
 
-    let layout = build_docx_layout(&mut context, &mut zip, &body, &[])
+    let layout = build_docx_layout(&mut context, &mut zip, &body)
         .expect("DOCX layout")
         .expect("document pages");
 

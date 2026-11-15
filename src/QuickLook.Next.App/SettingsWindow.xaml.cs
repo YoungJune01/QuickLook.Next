@@ -14,7 +14,7 @@ namespace QuickLook.Next.App;
 
 public sealed partial class SettingsWindow : Window
 {
-    private const string RepositoryUrl = "https://github.com/SherlockChiang/QuickLook.Next";
+    private const string RepositoryUrl = ProjectRepository.Url;
     private readonly Func<string> _resolveIconPath;
     private readonly Action _settingsChanged;
     private readonly Func<NativeHookStatus?> _getHookStatus;
@@ -54,7 +54,6 @@ public sealed partial class SettingsWindow : Window
         };
 
         AutoStartToggle.IsEnabled = false;
-        SelectComboItem(WindowLevelCombo, AppSettings.Current.PreviewWindowLevel);
         CloseOnFocusLossToggle.IsOn = AppSettings.Current.ClosePreviewOnFocusLoss;
         SelectComboItem(LanguageCombo, AppSettings.Current.Language);
         AnimationCombo.SelectedIndex = AppSettings.Current.Animation switch
@@ -104,13 +103,9 @@ public sealed partial class SettingsWindow : Window
         GeneralHeading.Text = UiStrings.SettingsGeneral;
         GeneralDescription.Text = UiStrings.SettingsGeneralDescription;
         AutoStartTitle.Text = UiStrings.SettingsAutoStart;
-        AutoStartDescription.Text = AutoStart.IsSupported
-            ? UiStrings.SettingsAutoStartDescription
-            : UiStrings.PortableAutoStartDescription;
-        WindowLevelTitle.Text = UiStrings.SettingsWindowLevel;
-        WindowLevelDescription.Text = UiStrings.SettingsWindowLevelDescription;
-        StandardWindowLevelItem.Content = UiStrings.SettingsWindowLevelStandard;
-        AlwaysOnTopWindowLevelItem.Content = UiStrings.SettingsWindowLevelAlwaysOnTop;
+        AutoStartDescription.Text = AppStorage.Current.IsPortable
+            ? UiStrings.PortableAutoStartDescription
+            : UiStrings.SettingsAutoStartDescription;
         CloseOnFocusLossTitle.Text = UiStrings.SettingsCloseOnFocusLoss;
         CloseOnFocusLossDescription.Text = UiStrings.SettingsCloseOnFocusLossDescription;
         LanguageTitle.Text = UiStrings.SettingsLanguage;
@@ -189,7 +184,6 @@ public sealed partial class SettingsWindow : Window
         bool compact = width > 0 && width < 560;
         ContentPanel.Padding = compact ? new Thickness(20, 20, 20, 32) : new Thickness(36, 20, 36, 32);
         SetSettingLayout(AutoStartSettingGrid, AutoStartToggle, compact);
-        SetSettingLayout(WindowLevelSettingGrid, WindowLevelCombo, compact);
         SetSettingLayout(CloseOnFocusLossSettingGrid, CloseOnFocusLossToggle, compact);
         SetSettingLayout(LanguageSettingGrid, LanguageCombo, compact);
         SetSettingLayout(AnimationSettingGrid, AnimationCombo, compact);
@@ -294,18 +288,6 @@ public sealed partial class SettingsWindow : Window
         RestartInfo.Title = UiStrings.SettingsRestartTitle;
         RestartInfo.Message = UiStrings.SettingsRestartMessage;
         RestartInfo.IsOpen = true;
-    }
-
-    private void OnWindowLevelSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_initializing || WindowLevelCombo.SelectedItem is not ComboBoxItem { Tag: string level })
-            return;
-        if (!AppSettings.SavePreviewWindowLevel(level))
-        {
-            ShowSettingsSaveFailure();
-            return;
-        }
-        _settingsChanged();
     }
 
     private void OnCloseOnFocusLossToggled(object sender, RoutedEventArgs e)

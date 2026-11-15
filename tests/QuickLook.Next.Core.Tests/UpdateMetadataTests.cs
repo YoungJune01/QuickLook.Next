@@ -38,12 +38,31 @@ public sealed class UpdateMetadataTests
         Assert.Equal(17763, metadata.MinimumWindowsBuild);
     }
 
+    [Fact]
+    public void Portable_update_metadata_uses_the_same_pinned_repository()
+    {
+        string json = ValidJson.Replace("QuickLook.Next-Installer-0.2.18-win-x64.zip",
+            "QuickLook.Next-0.2.18-portable-win-x64.zip");
+        Assert.Equal("0.2.18", UpdateMetadata.Parse(Encoding.UTF8.GetBytes(json)).VersionText);
+    }
+
+    [Theory]
+    [InlineData("https://github.com/SherlockChiang/QuickLook.Next")]
+    [InlineData("https://github.com/another-owner/QuickLook.Next")]
+    [InlineData("https://github.com/YoungJune01/QuickLook.Next-other")]
+    [InlineData("http://github.com/YoungJune01/QuickLook.Next")]
+    public void Updates_cannot_switch_to_upstream_or_another_repository(string repositoryUrl)
+    {
+        string json = ValidJson.Replace(ProjectRepository.Url, repositoryUrl);
+        Assert.Throws<FormatException>(() => UpdateMetadata.Parse(Encoding.UTF8.GetBytes(json)));
+    }
+
     [Theory]
     [InlineData("\"schemaVersion\": 1", "\"schemaVersion\": 2")]
     [InlineData("\"channel\": \"stable\"", "\"channel\": \"beta\"")]
     [InlineData("\"architecture\": \"x64\"", "\"architecture\": \"arm64\"")]
     [InlineData("\"tag\": \"v0.2.18\"", "\"tag\": \"v0.2.17\"")]
-    [InlineData("github.com/SherlockChiang/QuickLook.Next", "example.com/SherlockChiang/QuickLook.Next")]
+    [InlineData("github.com/YoungJune01/QuickLook.Next", "example.com/YoungJune01/QuickLook.Next")]
     [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "invalid")]
     public void Stable_update_metadata_rejects_inconsistent_or_untrusted_fields(string from, string to)
         => Assert.Throws<FormatException>(() => UpdateMetadata.Parse(Encoding.UTF8.GetBytes(ValidJson.Replace(from, to))));
@@ -92,7 +111,7 @@ public sealed class UpdateMetadataTests
           "architecture": "x64",
           "minimumWindowsBuild": 17763,
           "publishedAt": "2026-07-29T00:00:00Z",
-          "downloadUrl": "https://github.com/SherlockChiang/QuickLook.Next/releases/download/v0.2.18/QuickLook.Next-Installer-0.2.18-win-x64.zip",
+          "downloadUrl": "https://github.com/YoungJune01/QuickLook.Next/releases/download/v0.2.18/QuickLook.Next-Installer-0.2.18-win-x64.zip",
           "file": "QuickLook.Next-Installer-0.2.18-win-x64.zip",
           "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }

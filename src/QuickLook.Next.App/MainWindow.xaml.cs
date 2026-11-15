@@ -44,7 +44,16 @@ public sealed partial class MainWindow : Window
     private const int DuplicateOpenCloseGuardMs = 750;
     private static readonly TimeSpan CloudPreviewTimeout = TimeSpan.FromSeconds(45);
 
-    private readonly NativeBridge _native = new();
+    private readonly NativeBridge _native;
+    private readonly PreviewWindowManager _windows;
+    private readonly bool _ownsGlobalServices;
+    private readonly PreviewWindowOptions _windowOptions = new();
+    private bool _isPinned => _windowOptions.Pinned;
+    internal long ActivationOrder { get; set; }
+    internal bool HasSettingsWindow => _settingsWindow is not null;
+    internal PreviewWindowSlot RoutingSlot => new(
+        IsPreviewActiveForClose(), _isPinned, _windowController.IsForeground,
+        _previewSession.PendingPath ?? _previewSession.CurrentPath, ActivationOrder);
     private readonly NativeThumbnailScheduler _thumbnailScheduler;
     private readonly FolderListingCache _folderListingCache;
     private readonly PreviewWindowController _windowController;
@@ -240,9 +249,14 @@ public sealed partial class MainWindow : Window
     // Show the top status text (file name / errors) only while debugging; normal use is chromeless.
     private const bool ShowStatusBar = false;
 
-    public MainWindow()
+    internal MainWindow(PreviewWindowManager windows, NativeBridge native, bool ownsGlobalServices)
     {
+        _windows = windows;
+        _native = native;
+        _ownsGlobalServices = ownsGlobalServices;
         InitializeComponent();
+        UpdateWindowToggleLabels();
+        PreviewWindowLimitInfoBar.Message = UiStrings.PreviewWindowLimitMessage;
         _pdfTextController = new PdfTextController(LoadPdfTextDocumentAsync);
         TextSearchBox.PlaceholderText = UiStrings.TextSearchPlaceholder;
         AutomationProperties.SetName(CloudProgressPanel, UiStrings.CloudProgressAccessibleName);
@@ -294,9 +308,7 @@ public sealed partial class MainWindow : Window
         _windowController = new PreviewWindowController(
             this,
             () => WinRT.Interop.WindowNative.GetWindowHandle(this),
-            () => _settingsWindow is null
-                ? PreviewWindowPolicy.ParseLevel(AppSettings.Current.PreviewWindowLevel)
-                : PreviewWindowLevel.Standard);
+            () => _windowOptions.Level);
         _textPresenter = new TextPreviewPresenter(
             TextPreviewBlock,
             TextScrollViewer,
@@ -382,7 +394,12 @@ public sealed partial class MainWindow : Window
             PreviewListingItemAsync,
             LoadListingIconAsync);
         ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
+        SetTitleBar(PreviewTitleDragRegion);
+        AppTitleBar.SizeChanged += (_, args) =>
+        {
+            AppBrandText.Visibility = args.NewSize.Width < 680 ? Visibility.Collapsed : Visibility.Visible;
+            PreviewKindPill.Visibility = args.NewSize.Width < 480 ? Visibility.Collapsed : Visibility.Visible;
+        };
         _titleBarInsetController = new TitleBarInsetController(this, AppTitleBar);
         Title = UiStrings.AppName;
         TrySetBackdrop();
@@ -393,6 +410,7 @@ public sealed partial class MainWindow : Window
         _previewKeyboardHook = new PreviewKeyboardHook(
             WinRT.Interop.WindowNative.GetWindowHandle(this),
             ShouldHandleSpaceAsPreviewClose,
+            FocusedControlUsesSpace,
             ClosePreviewFromKeyboard,
             TryHandlePreviewWindowEscape,
             OnWindowMouseWheel);
@@ -412,6 +430,7 @@ public sealed partial class MainWindow : Window
         PreviewRoot.PointerCaptureLost += OnPreviewRootPointerCaptureLost;
         PreviewRoot.DoubleTapped += OnPreviewRootDoubleTapped;
         RootGrid.KeyDown += OnRootGridKeyDown;
+        RootGrid.PreviewKeyDown += OnPreviewSpaceKeyDown;
         PdfScrollViewer.AddHandler(
             UIElement.KeyDownEvent,
             new Microsoft.UI.Xaml.Input.KeyEventHandler(OnPdfScrollViewerKeyDown),
@@ -419,7 +438,7 @@ public sealed partial class MainWindow : Window
         GetAppWindow().Closing += (appWindow, args) =>
         {
             // Intercept the close (X button / Alt+F4 / taskbar close): hide the window instead of
-            // destroying it. The app stays alive in the tray; Escape or tray "Exit" truly quits.
+            // destroying it. The app stays alive in the tray; tray "Exit" closes all slots.
             args.Cancel = true;
             _ = ClosePreviewImmediatelyAsync();
         };
@@ -452,18 +471,9 @@ public sealed partial class MainWindow : Window
         };
         Closed += (_, _) =>
         {
-            _hdrDisplayRerenderCts?.Cancel();
-            _hdrDisplayRerenderCts?.Dispose();
-            _hdrDisplayRerenderCts = null;
-            _hdrDisplayCapability.Dispose();
-            _lifetimeCts.Cancel();
-            _uiWatchdog?.Dispose();
-            _previewKeyboardHook?.Dispose();
-            _native.Stop();
-            RemoveTrayIcon();
-            _supervisor?.Stop();
-            _parserSupervisor?.Stop();
-            _shellBroker?.Stop();
+            StopPreviewServices();
+            if (_ownsGlobalServices)
+                _windows.Exit();
         };
 
         RootGrid.ActualThemeChanged += (s, e) =>
@@ -480,26 +490,22 @@ public sealed partial class MainWindow : Window
 
     public async Task StartBackgroundAsync()
     {
-        if (_isStarted) return;
+        if (_isStarted || !_ownsGlobalServices) return;
         _isStarted = true;
 
         DiagLog.Write("App", $"background start; pid={Environment.ProcessId}");
-        _uiWatchdog ??= new UiThreadWatchdog(DispatcherQueue);
+        if (_ownsGlobalServices)
+            _uiWatchdog ??= new UiThreadWatchdog(DispatcherQueue);
         SetBackgroundEfficiency(enabled: true);
         StatusBar.Visibility = ShowStatusBar ? Visibility.Visible : Visibility.Collapsed;
         ApplyWindowIcon();
-        EnsureTrayIcon();
+        if (_ownsGlobalServices)
+            EnsureTrayIcon();
         _windowController.SetNoActivateStyle(enabled: false);
 
         try
         {
-            _supervisor = new RasterHostSupervisor(ResolveHostExePath(), DispatcherQueue);
-            _supervisor.SetBackgroundEfficiency(_backgroundEfficiencyEnabled ?? true);
-            _supervisor.SurfaceReceived += OnSurfaceReceived;
-            _supervisor.PageErrorReceived += OnPdfPageErrorReceived;
-            _supervisor.ImageWaveformReceived += OnImageWaveformReceived;
-            _supervisor.ImageThumbnailReceived += OnImageThumbnailReceived;
-            _supervisor.ImageRefreshFailed += OnImageRefreshFailed;
+            StartPreviewServices();
             _native.Start(OnNativeIntent);
             AppStartupTiming.Mark("native-hook-ready");
             StatusText.Text = UiStrings.Ready;
@@ -523,6 +529,44 @@ public sealed partial class MainWindow : Window
             StatusBar.Visibility = Visibility.Visible;
             ShowPreviewWindow(activate: true);
         }
+    }
+
+    internal void StartPreviewServices()
+    {
+        if (_supervisor is not null)
+            return;
+        ApplyWindowIcon();
+        _supervisor = new RasterHostSupervisor(ResolveHostExePath(), DispatcherQueue);
+        _supervisor.SetBackgroundEfficiency(_backgroundEfficiencyEnabled ?? true);
+        _supervisor.SurfaceReceived += OnSurfaceReceived;
+        _supervisor.PageErrorReceived += OnPdfPageErrorReceived;
+        _supervisor.ImageWaveformReceived += OnImageWaveformReceived;
+        _supervisor.ImageThumbnailReceived += OnImageThumbnailReceived;
+        _supervisor.ImageRefreshFailed += OnImageRefreshFailed;
+    }
+
+    internal void StopPreviewServices()
+    {
+        if (_lifetimeCts.IsCancellationRequested)
+            return;
+        CancelSwitchDebounce();
+        _previewSession.BeginClose();
+        _previewSession.CancelOperation();
+        _previewSession.Clear();
+        CancelPreviewFrameCallbacks();
+        ResetPreview();
+        _hdrDisplayRerenderCts?.Cancel();
+        _hdrDisplayRerenderCts?.Dispose();
+        _hdrDisplayRerenderCts = null;
+        _hdrDisplayCapability.Dispose();
+        _lifetimeCts.Cancel();
+        _uiWatchdog?.Dispose();
+        _previewKeyboardHook?.Dispose();
+        RemoveTrayIcon();
+        _settingsWindow?.Close();
+        _supervisor?.Stop();
+        _parserSupervisor?.Stop();
+        _shellBroker?.Stop();
     }
 
     private static async Task RepairAutoStartAsync(CancellationToken cancellationToken)
@@ -573,25 +617,24 @@ public sealed partial class MainWindow : Window
     }
 
     private void OnNativeIntent(NativeIntent intent)
+        => _windows.Dispatch(intent);
+
+    internal void ReceiveNativeIntent(NativeIntent intent, long receivedAt)
     {
-        long receivedAt = Stopwatch.GetTimestamp();
-        DispatcherQueue.TryEnqueue(() =>
+        double queueDelayMs = Stopwatch.GetElapsedTime(receivedAt).TotalMilliseconds;
+        DiagLog.Write("App", $"native intent={intent.Intent}; path={intent.PrimaryPath ?? "<none>"}; visible={_previewVisible}; uiQueue={queueDelayMs:0.0}ms");
+        if (intent.Intent == PreviewIntent.Switch)
+            DebounceSwitchIntent(intent, receivedAt);
+        else
         {
-            double queueDelayMs = Stopwatch.GetElapsedTime(receivedAt).TotalMilliseconds;
-            DiagLog.Write("App", $"native intent={intent.Intent}; path={intent.PrimaryPath ?? "<none>"}; visible={_previewVisible}; uiQueue={queueDelayMs:0.0}ms");
-            if (intent.Intent == PreviewIntent.Switch)
-                DebounceSwitchIntent(intent, receivedAt);
-            else
-            {
-                CancelSwitchDebounce();
-                _ = HandleNativeIntentSafelyAsync(intent, receivedAt);
-            }
-        });
+            CancelSwitchDebounce();
+            _ = HandleNativeIntentSafelyAsync(intent, receivedAt);
+        }
     }
 
     private void DebounceSwitchIntent(NativeIntent intent, long receivedAt)
     {
-        if (!_previewVisible)
+        if (!_previewVisible || _isPinned)
             return;
 
         CancelSwitchDebounce();
@@ -608,7 +651,7 @@ public sealed partial class MainWindow : Window
             {
                 try
                 {
-                    if (_switchDebounceCts != cts || cts.IsCancellationRequested)
+                    if (_switchDebounceCts != cts || cts.IsCancellationRequested || _isPinned)
                         return;
                     _switchDebounceCts = null;
                     _ = HandleNativeIntentSafelyAsync(intent, receivedAt);
@@ -801,7 +844,16 @@ public sealed partial class MainWindow : Window
 
         if (intent.Intent is PreviewIntent.Open or PreviewIntent.Switch && intent.PrimaryPath is { } path)
         {
+            // A selection read started before activation may finish after focus has moved away.
+            // It must not close or reactivate a preview that is already open in the background.
+            if (intent.Intent == PreviewIntent.Open
+                && IsPreviewActiveForClose()
+                && !_windowController.IsForeground)
+                return;
+
             bool isExplorerSwitch = intent.Intent == PreviewIntent.Switch;
+            if (isExplorerSwitch && _isPinned)
+                return;
             if (isExplorerSwitch && !_previewSession.ShouldAcceptExplorerSwitch(path, _previewVisible))
                 return;
 
@@ -1355,8 +1407,8 @@ public sealed partial class MainWindow : Window
     {
         CancelPreviewFrameCallbacks();
         DiagLog.Write("App", $"preview transition begin; visible={_previewVisible}; request={_previewSession.CurrentRequestId}");
-        _native.SetPreviewVisible(true);
         _previewRevealPending = true;
+        _windows.RefreshVisibility();
         PreviewContentHost.Opacity = 0;
         PreviewContentHost.IsHitTestVisible = false;
         ErrorPanel.Visibility = Visibility.Collapsed;
@@ -3620,18 +3672,7 @@ public sealed partial class MainWindow : Window
         bool modifierDown = shiftDown
             || controlDown
             || IsVirtualKeyDown(Windows.System.VirtualKey.Menu);
-        object? focusedElement = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement();
-        bool focusedControlUsesSpace = focusedElement is Control;
-        if (e.Key == Windows.System.VirtualKey.Space
-            && !modifierDown
-            && !focusedControlUsesSpace
-            && ShouldHandleSpaceAsPreviewClose())
-        {
-            e.Handled = true;
-            ClosePreviewFromKeyboard();
-            return;
-        }
-
+        object? focusedElement = GetWindowFocusedElement();
         bool textPreviewVisible = TextPreviewContainer.Visibility == Visibility.Visible;
         if (textPreviewVisible && controlDown && e.Key == Windows.System.VirtualKey.F)
         {
@@ -4088,7 +4129,7 @@ public sealed partial class MainWindow : Window
             CloseTextSearch();
         else if (PdfScrollViewer.Visibility == Visibility.Visible && PdfSearchBar.Visibility == Visibility.Visible)
             ClosePdfSearch();
-        else if (FocusManager.GetFocusedElement() is TextBox or PasswordBox or AutoSuggestBox)
+        else if (GetWindowFocusedElement() is TextBox or PasswordBox or AutoSuggestBox)
             return false; // The focused editor/filter owns its dismissal.
         else
             ClosePreviewFromKeyboard();
@@ -4110,13 +4151,36 @@ public sealed partial class MainWindow : Window
     private bool IsPreviewActiveForClose()
         => _previewVisible || _previewRevealPending;
 
-    private bool ShouldHandleSpaceAsPreviewClose()
-    {
-        if (!IsPreviewActiveForClose() || _isModalDialogOpen)
-            return false;
+    private object? GetWindowFocusedElement()
+        => RootGrid.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) : null;
 
-        return true;
+    private bool FocusedControlUsesSpace()
+    {
+        // SetFocus(HWND) leaves XAML's last logical focus behind. It does not give that
+        // control keyboard ownership; in particular an old title button must not block close.
+        if (_windowController.HasWindowKeyboardFocus)
+            return false;
+        return PreviewKeyboardFocus.UsesSpace(GetWindowFocusedElement());
     }
+
+    private void OnPreviewSpaceKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        // Tunnel before ScrollViewer/ListView class handling consumes Space as scrolling.
+        if (e.Key != Windows.System.VirtualKey.Space
+            || IsVirtualKeyDown(Windows.System.VirtualKey.Control)
+            || IsVirtualKeyDown(Windows.System.VirtualKey.Shift)
+            || IsVirtualKeyDown(Windows.System.VirtualKey.Menu)
+            || FocusedControlUsesSpace()
+            || !ShouldHandleSpaceAsPreviewClose())
+            return;
+        e.Handled = true;
+        if (!e.KeyStatus.WasKeyDown)
+            ClosePreviewFromKeyboard();
+    }
+
+    private bool ShouldHandleSpaceAsPreviewClose()
+        => PreviewWindowPolicy.ShouldCloseFromSpace(
+            IsPreviewActiveForClose(), _isModalDialogOpen, _windowController.IsForeground);
 
     private void OnOpenFileLocationClick(object sender, RoutedEventArgs e)
         => OpenCurrentPreviewPath(revealInExplorer: true);
@@ -4476,7 +4540,7 @@ public sealed partial class MainWindow : Window
         EnsureCompositor();
         _previewVisible = true;
         SetBackgroundEfficiency(enabled: false);
-        _native.SetPreviewVisible(true);
+        _windows.RefreshVisibility();
         if (!_previewRevealPending)
             PreviewContentHost.Opacity = 1;
     }
@@ -4484,6 +4548,9 @@ public sealed partial class MainWindow : Window
     private void OnPreviewWindowActivated(object sender, WindowActivatedEventArgs args)
     {
         _previewWindowActivated = args.WindowActivationState != WindowActivationState.Deactivated;
+        if (_previewWindowActivated)
+            _windows.Activated(this);
+        DiagLog.Write("App", $"window activation state={args.WindowActivationState}; visible={_previewVisible}; revealPending={_previewRevealPending}; gen={_previewSession.Generation}");
         if (_previewWindowActivated || _focusLossCloseQueued)
             return;
 
@@ -4496,11 +4563,11 @@ public sealed partial class MainWindow : Window
                 _focusLossCloseQueued = false;
                 if (_previewSession.Generation != generation
                     || !PreviewWindowPolicy.ShouldCloseAfterDeactivation(
-                        AppSettings.Current.ClosePreviewOnFocusLoss,
+                        AppSettings.Current.ClosePreviewOnFocusLoss && !_isPinned,
                         _previewVisible,
                         _previewWindowActivated,
                         _isModalDialogOpen,
-                        _settingsWindow is not null))
+                        _windows.SettingsOpen))
                 {
                     return;
                 }
@@ -4527,8 +4594,13 @@ public sealed partial class MainWindow : Window
         ExitFullscreen();
         _windowController.ReleaseTopmost();
         _previewVisible = false;
+        _windowOptions.Reset();
+        PreviewWindowLimitInfoBar.IsOpen = false;
+        PinPreviewButton.IsChecked = false;
+        AlwaysOnTopButton.IsChecked = false;
+        UpdateWindowToggleLabels();
         SetBackgroundEfficiency(enabled: true);
-        _native.SetPreviewVisible(false);
+        _windows.RefreshVisibility(invalidateInput: true);
     }
 
     private void SetBackgroundEfficiency(bool enabled)
@@ -4537,7 +4609,7 @@ public sealed partial class MainWindow : Window
             return;
 
         _backgroundEfficiencyEnabled = enabled;
-        ProcessPowerMode.SetCurrentBackgroundEfficiency(enabled, "App");
+        _windows.RefreshVisibility();
         _supervisor?.SetBackgroundEfficiency(enabled);
         _parserSupervisor?.SetBackgroundEfficiency(enabled);
     }
@@ -4602,7 +4674,7 @@ public sealed partial class MainWindow : Window
         {
             _settingsWindow = new SettingsWindow(
                 ResolveAppIconPath,
-                OnSettingsChanged,
+                _windows.SettingsChanged,
                 () => _native.LastHookFailure ?? _native.HookStatus,
                 RetryNativeHook);
             _settingsWindow.Closed += (_, _) =>
@@ -4620,6 +4692,7 @@ public sealed partial class MainWindow : Window
         {
             _native.Stop();
             _native.Start(OnNativeIntent);
+            _windows.RefreshVisibility(invalidateInput: true);
             StatusText.Text = UiStrings.Ready;
             DiagLog.Write("App", "native hook restarted from settings");
             return true;
@@ -4631,7 +4704,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnSettingsChanged()
+    internal void ApplySettings()
     {
         RefreshTrayIcon();
         _windowController.ApplyConfiguredLevel(_previewVisible);
@@ -4665,15 +4738,46 @@ public sealed partial class MainWindow : Window
 
     private void ExitApp()
     {
-        RemoveTrayIcon();
-        _settingsWindow?.Close();
-        _previewKeyboardHook?.Dispose();
-        _native.Stop();
-        _supervisor?.Stop();
-        _parserSupervisor?.Stop();
-        _shellBroker?.Stop();
-        try { Microsoft.UI.Xaml.Application.Current.Exit(); }
+        try { _windows.Exit(); }
         catch (Exception ex) { DiagLog.Write("App", "graceful exit failed: " + ex); }
+    }
+
+    internal void ActivateExistingPreview() => _windowController.Raise(activate: true);
+
+    internal void ShowPreviewLimitMessage()
+    {
+        PreviewWindowLimitInfoBar.IsOpen = true;
+        if (_ownsGlobalServices)
+            ShowTrayBalloon(UiStrings.AppName, UiStrings.PreviewWindowLimitMessage);
+    }
+
+    internal void DismissPreviewLimitMessage() => PreviewWindowLimitInfoBar.IsOpen = false;
+
+    private void OnPinPreviewClick(object sender, RoutedEventArgs e)
+    {
+        _windowOptions.Pinned = PinPreviewButton.IsChecked == true;
+        PreviewWindowLimitInfoBar.IsOpen = false;
+        CancelSwitchDebounce();
+        _windows.Activated(this);
+        _windows.RefreshVisibility(invalidateInput: true);
+        UpdateWindowToggleLabels();
+    }
+
+    private void OnAlwaysOnTopClick(object sender, RoutedEventArgs e)
+    {
+        _windowOptions.AlwaysOnTop = AlwaysOnTopButton.IsChecked == true;
+        _windowController.ApplyConfiguredLevel(_previewVisible);
+        UpdateWindowToggleLabels();
+    }
+
+    private void UpdateWindowToggleLabels()
+    {
+        string pin = _isPinned ? UiStrings.PreviewUnpin : UiStrings.PreviewPin;
+        string top = _windowOptions.AlwaysOnTop ? UiStrings.PreviewDisableAlwaysOnTop : UiStrings.PreviewAlwaysOnTop;
+        AutomationProperties.SetName(PinPreviewButton, pin);
+        ToolTipService.SetToolTip(PinPreviewButton, pin);
+        AutomationProperties.SetName(AlwaysOnTopButton, top);
+        ToolTipService.SetToolTip(AlwaysOnTopButton, top);
     }
 
     private (

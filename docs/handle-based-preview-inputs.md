@@ -322,7 +322,11 @@ variants; an ABI 3 library without that bit stays on the stable entry points.
 Package parsing and retained Hero extraction use `ql_preview_package_handle` and
 `ql_extract_package_icon_handle`. The authoritative local routing probe uses
 `ql_probe_file_handle` against the same pinned object later handed to the Host.
-Plain text, Markdown, CSV, and TSV share one Reader parser; executable parsing reads at most a
+Plain text, Markdown, CSV, and TSV share one Reader parser. CSV/TSV prefer Unicode BOMs and
+strict UTF-8, then accept a strict GBK decode with Chinese text evidence before falling back
+to Windows-1252. Only truncated prefixes may drop an incomplete final GBK lead byte; complete
+malformed files never take that repair path. The existing 512 KiB input/model budgets remain.
+Executable parsing reads at most a
 cancellable 4 MiB prefix; torrent parsing performs an exact, cancellable read capped at 16 MiB before
 the existing bounded bencode parser runs. Mail, archive, and ebook routes use bounded, cancellable
 `Read + Seek` pipelines. ParserHost requires bit 21 before advertising local mail support, so an

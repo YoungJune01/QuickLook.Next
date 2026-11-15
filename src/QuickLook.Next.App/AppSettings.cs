@@ -5,16 +5,15 @@ using QuickLook.Next.Core;
 namespace QuickLook.Next.App;
 
 internal sealed record AppSettings(
-    int SchemaVersion = 4,
+    int SchemaVersion = 5,
     string Language = AppLanguagePolicy.SystemLanguage,
     string Animation = "system",
     string TextWrapping = "automatic",
     string TextSize = "default",
     bool TextLineNumbers = false,
-    string PreviewWindowLevel = PreviewWindowPolicy.StandardLevelSetting,
     bool ClosePreviewOnFocusLoss = false)
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     private static readonly string SettingsDirectory = AppStorage.Current.SettingsDirectory;
     private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "settings.json");
 
@@ -60,9 +59,6 @@ internal sealed record AppSettings(
 
     public static bool SaveTextLineNumbers(bool visible)
         => Save(Current with { TextLineNumbers = visible });
-
-    public static bool SavePreviewWindowLevel(string level)
-        => PreviewWindowPolicy.IsSupportedLevel(level) && Save(Current with { PreviewWindowLevel = level });
 
     public static bool SaveClosePreviewOnFocusLoss(bool enabled)
         => Save(Current with { ClosePreviewOnFocusLoss = enabled });
@@ -113,14 +109,10 @@ internal sealed record AppSettings(
                 TextWrapping = settings.SchemaVersion < 2 ? "automatic" : settings.TextWrapping,
                 TextSize = settings.SchemaVersion < 3 ? "default" : settings.TextSize,
                 TextLineNumbers = settings.SchemaVersion >= 3 && settings.TextLineNumbers,
-                PreviewWindowLevel = settings.SchemaVersion < 4
-                    ? PreviewWindowPolicy.StandardLevelSetting
-                    : settings.PreviewWindowLevel,
                 ClosePreviewOnFocusLoss = settings.SchemaVersion >= 4 && settings.ClosePreviewOnFocusLoss,
             };
             if (settings.TextWrapping is not ("automatic" or "always" or "never")
-                || settings.TextSize is not ("small" or "default" or "large")
-                || !PreviewWindowPolicy.IsSupportedLevel(settings.PreviewWindowLevel))
+                || settings.TextSize is not ("small" or "default" or "large"))
             {
                 PreserveInvalidSettings();
                 return new AppSettings();

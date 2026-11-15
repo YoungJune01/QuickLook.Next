@@ -6,18 +6,20 @@ internal enum PreviewWindowLevel
     AlwaysOnTop,
 }
 
+// These options belong to one window session and are deliberately never serialized.
+internal sealed class PreviewWindowOptions
+{
+    public bool Pinned { get; set; }
+    public bool AlwaysOnTop { get; set; }
+    public PreviewWindowLevel Level => AlwaysOnTop ? PreviewWindowLevel.AlwaysOnTop : PreviewWindowLevel.Standard;
+
+    public void Reset() => (Pinned, AlwaysOnTop) = (false, false);
+}
+
 internal static class PreviewWindowPolicy
 {
-    public const string StandardLevelSetting = "standard";
-    public const string AlwaysOnTopLevelSetting = "always-on-top";
-
-    public static bool IsSupportedLevel(string? value)
-        => value is StandardLevelSetting or AlwaysOnTopLevelSetting;
-
-    public static PreviewWindowLevel ParseLevel(string? value)
-        => value == AlwaysOnTopLevelSetting
-            ? PreviewWindowLevel.AlwaysOnTop
-            : PreviewWindowLevel.Standard;
+    public static bool ShouldCloseFromSpace(bool previewActive, bool modalDialogOpen, bool ownsForeground)
+        => previewActive && !modalDialogOpen && ownsForeground;
 
     public static bool ShouldCloseAfterDeactivation(
         bool closeOnFocusLoss,

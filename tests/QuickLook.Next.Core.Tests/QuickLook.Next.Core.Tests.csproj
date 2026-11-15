@@ -42,6 +42,10 @@
              Link="AppModel\PreviewNavigationPolicy.cs" />
     <Compile Include="..\..\src\QuickLook.Next.App\PreviewWindowPolicy.cs"
              Link="AppModel\PreviewWindowPolicy.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewWindowRoutingPolicy.cs"
+             Link="AppModel\PreviewWindowRoutingPolicy.cs" />
+    <Compile Include="..\..\src\QuickLook.Next.App\PreviewSpaceKeyHandler.cs"
+             Link="AppModel\PreviewSpaceKeyHandler.cs" />
     <Compile Include="..\..\src\QuickLook.Next.App\PdfTextController.cs"
              Link="AppModel\PdfTextController.cs" />
     <Compile Include="..\..\src\QuickLook.Next.App\PdfDocumentStatePolicy.cs"

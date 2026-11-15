@@ -47,12 +47,13 @@
   <data name="SettingsGeneralDescription" xml:space="preserve"><value>选择 QuickLook Next 在 Windows 中的运行方式。</value></data>
   <data name="SettingsAutoStart" xml:space="preserve"><value>开机自启</value></data>
   <data name="SettingsAutoStartDescription" xml:space="preserve"><value>登录 Windows 后在通知区域保持 QuickLook Next 就绪。</value></data>
-  <data name="SettingsWindowLevel" xml:space="preserve"><value>预览窗口层级</value></data>
-  <data name="SettingsWindowLevelDescription" xml:space="preserve"><value>标准模式只在需要时将窗口置于资源管理器上方；始终置顶会让预览在关闭前保持在其他应用上方。</value></data>
-  <data name="SettingsWindowLevelStandard" xml:space="preserve"><value>标准</value></data>
-  <data name="SettingsWindowLevelAlwaysOnTop" xml:space="preserve"><value>始终置顶</value></data>
+  <data name="PreviewPin" xml:space="preserve"><value>固定此预览（保留当前文件）</value></data>
+  <data name="PreviewUnpin" xml:space="preserve"><value>取消固定此预览</value></data>
+  <data name="PreviewAlwaysOnTop" xml:space="preserve"><value>将此窗口置顶</value></data>
+  <data name="PreviewDisableAlwaysOnTop" xml:space="preserve"><value>取消此窗口置顶</value></data>
+  <data name="PreviewWindowLimitMessage" xml:space="preserve"><value>三个预览窗口均已固定。请先关闭一个窗口或取消固定，再预览其他文件。</value></data>
   <data name="SettingsCloseOnFocusLoss" xml:space="preserve"><value>焦点移开时关闭预览</value></data>
-  <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve"><value>其他应用获得焦点后隐藏预览；QuickLook Next 的设置和对话框不会触发关闭。</value></data>
+  <data name="SettingsCloseOnFocusLossDescription" xml:space="preserve"><value>其他应用获得焦点后隐藏未固定的预览；QuickLook Next 的设置和对话框不会触发关闭。</value></data>
   <data name="SettingsLanguage" xml:space="preserve"><value>语言</value></data>
   <data name="SettingsLanguageDescription" xml:space="preserve"><value>选择应用和托盘菜单使用的语言。</value></data>
   <data name="SettingsSystemLanguage" xml:space="preserve"><value>跟随系统语言</value></data>
@@ -79,7 +80,7 @@
   <data name="SettingsAbout" xml:space="preserve"><value>关于</value></data>
   <data name="SettingsAboutDescription" xml:space="preserve"><value>查看版本、项目来源和发布信息。</value></data>
   <data name="SettingsVersionFormat" xml:space="preserve"><value>版本 {0}</value></data>
-  <data name="SettingsProjectSource" xml:space="preserve"><value>QuickLook Next 是在 GitHub 上开发的开源项目。本项目发布的构建来源于下方代码仓库。</value></data>
+  <data name="SettingsProjectSource" xml:space="preserve"><value>本版本由 YoungJune01 独立维护。感谢原作者 SherlockChiang 及所有上游贡献者。源码、下载和更新检查使用本仓库的 GitHub 源。</value></data>
   <data name="SettingsOpenGitHub" xml:space="preserve"><value>打开 GitHub 项目</value></data>
   <data name="SettingsViewReleases" xml:space="preserve"><value>查看发布版本</value></data>
   <data name="SettingsCheckForUpdates" xml:space="preserve"><value>检查更新</value></data>
@@ -488,5 +489,5 @@
   <data name="DiagnosticsCopied" xml:space="preserve"><value>诊断信息已复制。</value></data>
   <data name="PreviewContentLimitExceededTitle" xml:space="preserve"><value>文件过大，无法预览</value></data>
   <data name="PreviewContentLimitExceededMessage" xml:space="preserve"><value>此文件的数据量或解压后的内容超出预览限制。请点击“打开文件”，使用关联应用查看完整内容。</value></data>
-  <data name="PortableAutoStartDescription" xml:space="preserve"><value>便携模式不启用开机自启，避免写入注册表和系统启动目录。</value></data>
+  <data name="PortableAutoStartDescription" xml:space="preserve"><value>登录 Windows 时启动此便携版。开启后会为当前文件夹创建启动项；移动或删除文件夹前请先关闭。</value></data>
 </root>

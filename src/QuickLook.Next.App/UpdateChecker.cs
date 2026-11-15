@@ -4,7 +4,7 @@ namespace QuickLook.Next.App;
 
 internal static class UpdateChecker
 {
-    private static readonly Uri FeedUri = new("https://github.com/SherlockChiang/QuickLook.Next/releases/latest/download/update.json");
+    private static readonly Uri FeedUri = new(ProjectRepository.UpdateFeedUrl);
     private const int MaxResponseBytes = 16 * 1024;
 
     public static async Task<UpdateMetadata> CheckAsync(CancellationToken cancellationToken)

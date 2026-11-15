@@ -21,7 +21,7 @@ internal static class AutoStart
 
     // ── Packaged detection (cached) ──
     private static readonly bool _isPackaged = DetectPackaged();
-    public static bool IsSupported => !AppStorage.Current.IsPortable;
+    public static bool IsSupported => !AppStorage.Current.IsPortable || PortableAutoStart.IsSupported;
 
     // ───────────────────────────────────────────── public API ─────────────────────────────────────────────
 
@@ -31,6 +31,8 @@ internal static class AutoStart
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (AppStorage.Current.IsPortable)
+                return await Task.Run(PortableAutoStart.IsEnabled, cancellationToken).ConfigureAwait(false);
             if (_isPackaged)
                 return await IsStartupTaskEnabledAsync();
 
@@ -55,6 +57,8 @@ internal static class AutoStart
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (AppStorage.Current.IsPortable)
+                return await Task.Run(() => PortableAutoStart.SetEnabled(enabled), cancellationToken).ConfigureAwait(false);
             if (_isPackaged)
                 return await SetStartupTaskEnabledAsync(enabled);
 
@@ -75,7 +79,8 @@ internal static class AutoStart
 
     public static async Task RepairIfConfiguredAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsSupported) return;
+        // Portable startup is opt-in only; never repair, migrate, or query another copy.
+        if (AppStorage.Current.IsPortable) return;
         // Packaged apps manage their own state via the StartupTask API — no repair needed.
         if (_isPackaged)
             return;

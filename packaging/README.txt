@@ -11,7 +11,7 @@ English
 
 The certificate is a temporary project development certificate, not a commercial
 identity certificate. Verify that this installer came from the official GitHub
-release page: https://github.com/SherlockChiang/QuickLook.Next/releases
+release page: https://github.com/YoungJune01/QuickLook.Next/releases
 
 简体中文
 1. 双击 Install-ZH-CN.cmd。
@@ -21,4 +21,4 @@ release page: https://github.com/SherlockChiang/QuickLook.Next/releases
 4. 以后可在 Windows 设置 > 应用中卸载。
 
 当前证书是项目临时开发证书，不是商业身份签名证书。请确认安装包来自官方
-GitHub Release 页面：https://github.com/SherlockChiang/QuickLook.Next/releases
+GitHub Release 页面：https://github.com/YoungJune01/QuickLook.Next/releases

@@ -1,6 +1,4 @@
 using System.Runtime.InteropServices;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using QuickLook.Next.Core;
 
 namespace QuickLook.Next.App;
@@ -20,6 +18,7 @@ internal sealed class PreviewKeyboardHook : IDisposable
 
     private readonly nint _hwnd;
     private readonly Func<bool> _shouldHandleSpace;
+    private readonly Func<bool> _focusedControlUsesSpace;
     private readonly Action _onSpace;
     private readonly Func<bool> _onEscape;
     private readonly Func<int, int, int, bool> _onMouseWheel;
@@ -27,18 +26,19 @@ internal sealed class PreviewKeyboardHook : IDisposable
     private readonly nuint _subclassId;
     private bool _installed;
     private bool _disposed;
-    private bool _spaceDownHandled;
     private bool _escapeDownHandled;
 
     public PreviewKeyboardHook(
         nint hwnd,
         Func<bool> shouldHandleSpace,
+        Func<bool> focusedControlUsesSpace,
         Action onSpace,
         Func<bool> onEscape,
         Func<int, int, int, bool> onMouseWheel)
     {
         _hwnd = hwnd;
         _shouldHandleSpace = shouldHandleSpace;
+        _focusedControlUsesSpace = focusedControlUsesSpace;
         _onSpace = onSpace;
         _onEscape = onEscape;
         _onMouseWheel = onMouseWheel;
@@ -94,24 +94,16 @@ internal sealed class PreviewKeyboardHook : IDisposable
                 return 0;
         }
 
-        if ((msg == WM_KEYUP || msg == WM_SYSKEYUP) && wParam == VK_SPACE)
-            _spaceDownHandled = false;
-
-        if ((msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYUP)
-            && wParam == VK_SPACE
+        if (wParam == VK_SPACE
             && !ModifierKeyDown()
             && _shouldHandleSpace()
-            && !FocusedControlUsesSpace())
-        {
-            if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
+            && !_focusedControlUsesSpace()
+            && PreviewSpaceKeyHandler.TryHandle(msg, lParam, () =>
             {
-                if (!_spaceDownHandled)
-                {
-                    _spaceDownHandled = true;
-                    DiagLog.Write("App", "keyboard hook handled Space down");
-                    _onSpace();
-                }
-            }
+                DiagLog.Write("App", "keyboard hook handled Space down");
+                _onSpace();
+            }))
+        {
             return 0;
         }
 
@@ -120,9 +112,6 @@ internal sealed class PreviewKeyboardHook : IDisposable
 
     private static bool ModifierKeyDown()
         => KeyDown(VK_SHIFT) || KeyDown(VK_CONTROL) || KeyDown(VK_MENU);
-
-    private static bool FocusedControlUsesSpace()
-        => FocusManager.GetFocusedElement() is Control;
 
     private static bool KeyDown(int key) => (GetKeyState(key) & 0x8000) != 0;
 

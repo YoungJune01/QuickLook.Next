@@ -5,7 +5,7 @@ namespace QuickLook.Next.App;
 
 public partial class App : Application
 {
-    private MainWindow? _window;
+    private PreviewWindowManager? _windows;
 
     public App()
     {
@@ -22,8 +22,8 @@ public partial class App : Application
     {
         try
         {
-            _window = new MainWindow();
-            await _window.StartBackgroundAsync();
+            _windows = new PreviewWindowManager();
+            await _windows.Owner.StartBackgroundAsync();
             AppStartupTiming.Mark("background-ready");
             if (FirstRunExperience.ShouldShow)
                 WelcomeWindow.Show(

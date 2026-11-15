@@ -67,10 +67,10 @@ foreach ($destination in @($app, (Join-Path $app 'ParserHost'), (Join-Path $app 
 New-Item -ItemType Directory -Path (Join-Path $output 'Licenses') | Out-Null
 Copy-Item -LiteralPath $VCRedistributionNotice -Destination (Join-Path $output 'Licenses/VisualCpp-Redistribution.txt')
 Copy-Item -LiteralPath (Join-Path $root 'packaging/portable/Runtime-Notices.txt') -Destination (Join-Path $output 'Licenses/README.txt')
-foreach ($file in @('LICENSE', 'THIRD-PARTY-NOTICES.txt')) {
+foreach ($file in @('LICENSE', 'ACKNOWLEDGEMENTS.md', 'THIRD-PARTY-NOTICES.txt')) {
     Copy-Item -LiteralPath (Join-Path $app $file) -Destination (Join-Path $output $file)
 }
-foreach ($file in @('Start.cmd', 'README.txt')) {
+foreach ($file in @('Start.cmd', 'Start.ps1', 'README.txt')) {
     Copy-Item -LiteralPath (Join-Path $root "packaging/portable/$file") -Destination $output
 }
 [IO.File]::WriteAllText((Join-Path $output 'portable.mode'), '')

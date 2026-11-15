@@ -1,116 +1,61 @@
-# 本地维护指南
+# 仓库维护指南
 
-这份源码从下载的 `1.0.4` 快照开始维护。本页提供目录、开发和回退入口；
-实现与验证状态以 [review-readiness.md](review-readiness.md) 为准，贡献流程见
-[CONTRIBUTING.md](../CONTRIBUTING.md)，架构规范见 [AGENTS.md](../AGENTS.md)。
+本仓库基于 SherlockChiang/QuickLook.Next 的 `1.0.4` 源码快照独立维护，维护者为
+YoungJune01。项目来源与致谢见 [ACKNOWLEDGEMENTS.md](../ACKNOWLEDGEMENTS.md)。
+当前暂停新功能开发，保留源码、构建验证和后续修复能力。
 
-## 当前使用入口
+## 文件保留范围
 
-- 换电脑使用完整便携包的 `Start.cmd`：运行时随包，设置及缓存等位于 `Data/`。
-  使用和重新打包见[便携版说明](portable.md)，旧测试包仍保留用于回退。
-- 双击本机的 `artifacts/Start-MyQuickLook.cmd`，当前启动
-  `artifacts/local-preview-20261113-workbook-blanks/`。先退出其他 QuickLook 实例。
-- 当前功能基线为 `38271f4`，保留于 `fix/workbook-empty-cells`；下表修复依次叠加。
-  项目精简工作位于其后的 `chore/slim-local-maintenance` 分支。
-- 2026-11-13，用户已确认全部已报告核心场景通过。反复切换、无选中项、主题等
-  组合场景仍按[交互回归清单](desktop-regression-checklist.md)单独记录。
-- 最新便携代码验证：Rust 390 项通过、1 项原有忽略；.NET 567 项通过；Release
-  构建零警告、零错误；格式、Clippy 和完整架构检查通过。
-  精简及便携模式的独立验证结果见 [review-readiness.md](review-readiness.md)。
-
-## 已完成修复
-
-| 问题 | 核心验收结果 | 修复提交 / 保留分支 |
-|---|---|---|
-| 桌面空格预览、Explorer 多标签页 | 桌面可预览，读取当前标签页选中项 | `f574bf7` / `fix/desktop-and-explorer-tabs` |
-| Excel 行高、工作表布局 | 宽表正常行高并横向滚动，底部 Sheet 切换 | `008b0b3` / `fix/workbook-preview-layout` |
-| Excel 超限提示 | 显示“文件过大，无法预览”和打开文件入口 | `ac931f4` / `fix/workbook-preview-limits` |
-| Excel 空白区域缺失 | 保留实际空白格、空白合并区域的网格及已有样式 | `38271f4` / `fix/workbook-empty-cells` |
-
-Excel 仍按现有预算预览前 48 行、32 列、最多 6 个工作表。工作表和共享字符串
-XML 各有 16 MiB 的解压后大小限制；不以“五万行”作为拒绝阈值。预览不是完整的
-Excel 编辑器，查看全部数据请打开原文件。私人样本未提交到仓库。
-
-## 项目目录与文档
-
-| 路径 | 用途 |
+| 路径 | 内容与保留原因 |
 |---|---|
-| `native/quicklook_next_native/` | Rust 格式探测、受限解析和结构化预览模型 |
-| `src/` | WinUI App、Core、通信契约及三个隔离宿主 |
-| `tests/` | Core 单元测试和宿主集成测试；Rust 测试随原生模块维护 |
-| `testdata/` | 合成或获准分发的回归样本 |
-| `tools/`、`packaging/` | 构建、检查、发布脚本与打包配置 |
-| `docs/` | 实现状态、验收清单、ADRs、格式说明及后续计划 |
-| `artifacts/` | 本机工具、测试包和证据；已被 Git 忽略 |
+| `src/QuickLook.Next.App` | WinUI 窗口、设置、输入与预览生命周期 |
+| `src/QuickLook.Next.Core`、`Contracts` | 共享逻辑、版本/更新验证及通信契约 |
+| `src/*Host`、`ShellBroker` | 隔离解析、Windows 表面生产和 Shell 兼容边界 |
+| `native/` | Rust 模块、ABI 定义、固定依赖与 MSBuild 构建契约 |
+| `tests/`、`testdata/` | 回归测试与来源明确的样本；停止开发后仍用于验证发布 |
+| `tools/` | 构建、架构/安全检查、版本与发布脚本；已有检查相互引用，应整体保留 |
+| `packaging/` | 便携启动器，以及可选 MSIX 侧载文件 |
+| `.github/` | CI、依赖更新和发布自动化 |
+| `docs/` | ADR、HANDLE/ABI、安全边界、验证记录和维护待办 |
+| 根目录配置与锁文件 | 固定工具链、版本、构建入口、依赖可重复性与许可 |
 
-[review-readiness.md](review-readiness.md) 区分本地修复与上游历史验证，
-[docs/adr/README.md](adr/README.md) 索引已接受的架构决策，
-[handle-based-preview-inputs.md](handle-based-preview-inputs.md) 记录 HANDLE/ABI 细节，
-[implementation-todo.md](implementation-todo.md) 维护精简后的当前待办。
+旧网站、商店上架流程和参考插件已从工作目录移除，其历史仍在 Git 中。
+测试和检查脚本约占很小空间，保留它们有助于后续安全维护，不影响软件运行包大小。
 
-商店上架流程、宣传网站、未参与构建的旧插件和冗长历史文档已移出工作目录，
-清理前的完整版本保留于 Git 提交 `54302d0`。例如：
+## 本地文件与公开源码
+
+`artifacts/`、`bin/`、`obj/`、`native/target/` 等不属于公开源码，由 `.gitignore`
+排除；本机工具、历史测试包、日志和包含设置的 `Data/` 不上传。
+本次整理将本地工具与历史材料归档到项目目录之外，归档位置写在本机清理记录中。
+本地归档不属于从 GitHub 克隆后所需的项目文件。
+
+软件使用本仓库 Releases 的完整便携 ZIP；不能用源码 ZIP 直接运行。
+源码、发布与更新配置见 [GitHub 发布管理](github-release.md)。
+
+## 构建与验证
+
+新电脑按 [CONTRIBUTING.md](../CONTRIBUTING.md) 准备固定工具链。
+在仓库根目录执行：
 
 ```powershell
-git show 54302d0:docs/implementation-todo.md
-git ls-tree -r --name-only 54302d0 -- website plugins
+pwsh -NoProfile -File tools/doctor.ps1
+pwsh -NoProfile -File build.ps1 -Test
 ```
 
-当前运行代码、格式支持、测试、安全检查和必要 Windows 资源保留。
-`packaging/` 中的可选侧载安装与商店上架独立；其签名、证书校验属于 Windows
-安装机制，日常本地启动无需使用。`StoreLogo.png` 是安装清单引用的图标，仍保留。
-
-## 本机开发与验证
-
-在仓库根目录打开 PowerShell：
-
-```powershell
-. .\artifacts\tools\Enter-Dev.ps1
-pwsh -NoProfile -File .\tools\doctor.ps1
-pwsh -NoProfile -File .\build.ps1 -Test
-```
-
-本机脚本为当前进程配置固定版本 .NET SDK `10.0.302`、Rust `1.96.0`、
-PowerShell `7.5.4`、MSVC 和 Windows SDK；换电脑时按 `CONTRIBUTING.md` 准备环境。
-原生 DLL 单独构建须走 MSBuild：
+原生 DLL 的独立构建必须使用：
 
 ```powershell
 dotnet msbuild native\QuickLook.Next.Native.proj -target:Build -verbosity:minimal
 ```
 
-按改动先跑针对性回归，再跑 `AGENTS.md` 中的相关完整检查。
-重新编译不会更新独立测试包，需重新组装；现有本机组装脚本为
-`artifacts/assemble-workbook-blank-cells-preview.ps1`，使用项目的
-`tools/release-payload.ps1` 并验证复制哈希。App 必须与同次构建的三个宿主一起运行。
-实现、构建与自动化检查由维护者完成，实际界面由用户验收。
+完整检查以 [AGENTS.md](../AGENTS.md) 和 `tools/release.ps1` 为准。
+实现与验证状态在 [review-readiness.md](review-readiness.md)，人工验收在
+[desktop-regression-checklist.md](desktop-regression-checklist.md)，未完成事项在
+[implementation-todo.md](implementation-todo.md)；暂停开发不代表待办已完成。
 
-## 版本管理与回退
+## 历史与回退
 
-`main` 保留原始快照 `396fbbf`，对应上游提交尚未确定。当前只有本地 Git，
-没有关联远程、建立 GitHub Fork 或发布个人版本。
-
-```powershell
-git status --short --branch
-git log --oneline --decorate -6
-git diff main...HEAD
-```
-
-以下测试目录与同名 `.manifest.json` 均保留，不移动或删除：
-
-| `artifacts/` 下的目录 | 版本用途 |
-|---|---|
-| `local-preview-20261113/` | 桌面与多标签页修复 |
-| `local-preview-20261113-workbook/` | Excel 行高与 Sheet 切换 |
-| `local-preview-20261113-workbook-limits/` | 超限友好提示 |
-| `local-preview-20261113-workbook-blanks/` | 当前使用版，含空白格修复 |
-
-需要回退时，退出正在运行的实例，再从对应目录启动 `QuickLook.Next.App.exe`；
-保持目录内文件完整。详细本地产物索引见本机 `artifacts/README.md`。
-
-## 后续维护顺序
-
-1. 新问题先记录操作、预期、实际结果，优先制作不含个人数据的最小复现样本。
-2. 一个问题一个修复提交，同步更新实现状态、回归清单和本地测试包，再由用户验收。
-3. 补充已有清单中的反复切换、取消及错误恢复等边界场景，未测项保留待验证。
-4. 需要异地备份或跟随上游时，从自己的 GitHub Fork 克隆正式副本，再迁移本地修复。
-5. 正式分发前明确个人版本名称、包身份、签名和更新来源，保留许可与第三方声明。
+本地最初源码快照为 `396fbbf`，其对应上游提交未经确认；不要声称拥有完整上游历史。
+`54302d0` 保留此前的详细维护文档，后续提交保留桌面、多标签页和 Excel 修复。
+使用 `git log`、`git show <提交>:<路径>` 查看历史，不改写已有提交。
+程序回退应使用原版本完整 ZIP 和对应 Data 备份，不能混用不同构建的 App 与宿主。

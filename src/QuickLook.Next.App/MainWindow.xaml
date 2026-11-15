@@ -136,6 +136,11 @@
               Padding="14,0"
               AutomationProperties.Name="Preview title bar">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="PreviewTitleDragRegion" ColumnSpacing="12" Background="Transparent">
+            <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="1" />
                 <ColumnDefinition Width="*" />
@@ -145,7 +150,7 @@
                 <FontIcon Glyph="&#xE945;"
                           FontSize="17"
                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                <TextBlock x:Uid="AppBrandText"
+                <TextBlock x:Name="AppBrandText" x:Uid="AppBrandText"
                            Text="QuickLook Next"
                            VerticalAlignment="Center"
                            FontSize="12"
@@ -168,7 +173,7 @@
                            TextTrimming="CharacterEllipsis"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
-            <Border Grid.Column="3"
+            <Border x:Name="PreviewKindPill" Grid.Column="3"
                     MinWidth="52"
                     Height="26"
                     Padding="10,0"
@@ -184,6 +189,19 @@
                            FontWeight="SemiBold"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Border>
+            </Grid>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <ToggleButton x:Name="PinPreviewButton"
+                              Style="{StaticResource PreviewIconToggleButtonStyle}"
+                              Click="OnPinPreviewClick">
+                    <FontIcon Glyph="&#xE718;" FontSize="16" />
+                </ToggleButton>
+                <ToggleButton x:Name="AlwaysOnTopButton"
+                              Style="{StaticResource PreviewIconToggleButtonStyle}"
+                              Click="OnAlwaysOnTopClick">
+                    <FontIcon Glyph="&#xE74A;" FontSize="16" />
+                </ToggleButton>
+            </StackPanel>
         </Grid>
 
         <!-- Content Area -->
@@ -1539,5 +1557,15 @@
                 </Button>
             </StackPanel>
         </StackPanel>
+        <InfoBar x:Name="PreviewWindowLimitInfoBar"
+                 Grid.Row="1"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Severity="Informational"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 MaxWidth="480"
+                 Margin="16,12"
+                 AutomationProperties.LiveSetting="Polite" />
     </Grid>
 </Window>

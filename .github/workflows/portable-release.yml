@@ -1,0 +1,147 @@
+name: Portable Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-2025
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.302
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.96.0
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
+
+      - name: Resolve version and release target
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          . ./tools/checked-invocation.ps1
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw 'VERSION must use semantic X.Y.Z format.'
+          }
+          Invoke-CheckedScript -Path ./tools/test-release-target.ps1 -Arguments @{
+            Tag = "v$version"
+            Commit = $env:GITHUB_SHA
+            Repository = $env:GITHUB_REPOSITORY
+          } -FailureMessage 'Release target validation failed' | Out-Null
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Check NuGet vulnerabilities
+        shell: pwsh
+        run: ./tools/test-nuget-vulnerabilities.ps1
+
+      - name: Audit Rust dependencies
+        shell: pwsh
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked --force
+          if ($LASTEXITCODE -ne 0) { throw 'Installing cargo-audit failed.' }
+          cargo audit --file native/Cargo.lock
+          if ($LASTEXITCODE -ne 0) { throw 'Rust dependency audit failed.' }
+
+      - name: Build and run release checks
+        shell: pwsh
+        run: ./tools/release.ps1 -SkipPackage -SkipSystemImageSmoke
+
+      - name: Package and verify portable release
+        shell: pwsh
+        run: |
+          . ./tools/checked-invocation.ps1
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $installation = (& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+          if ($LASTEXITCODE -ne 0 -or -not $installation) { throw 'Visual C++ build tools are missing.' }
+          $crt = Get-ChildItem -Path "$installation/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory |
+            Where-Object { $_.Parent.Parent.Name -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Parent.Parent.Name } -Descending | Select-Object -First 1
+          $notice = Get-ChildItem -Path "$installation/Licenses/*/Redist.txt" -File |
+            Sort-Object FullName | Select-Object -First 1
+          if (-not $crt -or -not $notice) { throw 'Redistributable Visual C++ runtime or notice is missing.' }
+          Invoke-CheckedScript -Path ./tools/pack-portable.ps1 -Arguments @{
+            RuntimeRoot = $env:DOTNET_ROOT
+            VCRuntimeDirectory = $crt.FullName
+            VCRedistributionNotice = $notice.FullName
+          } -FailureMessage 'Portable packaging failed'
+          $package = "artifacts/QuickLook.Next-${{ steps.version.outputs.version }}-portable-win-x64"
+          Invoke-CheckedScript -Path ./tools/test-portable-package.ps1 -Arguments @{
+            PackageDirectory = $package
+          } -FailureMessage 'Portable runtime and storage verification failed'
+          Invoke-CheckedScript -Path ./tools/new-portable-update-metadata.ps1 -Arguments @{
+            PackageDirectory = $package
+            Repository = $env:GITHUB_REPOSITORY
+            OutputPath = 'artifacts/update.json'
+          } -FailureMessage 'Portable update metadata validation failed'
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: portable-release
+          path: |
+            artifacts/QuickLook.Next-*-portable-win-x64.zip
+            artifacts/QuickLook.Next-*-portable-win-x64.zip.sha256
+            artifacts/update.json
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: windows-2025
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: portable-release
+          path: artifacts
+
+      - name: Publish stable portable release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          $archive = "artifacts/QuickLook.Next-$env:RELEASE_VERSION-portable-win-x64.zip"
+          $name = [IO.Path]::GetFileName($archive)
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $checksum = (Get-Content -LiteralPath "$archive.sha256" -Raw).Trim()
+          $metadata = Get-Content -LiteralPath artifacts/update.json -Raw | ConvertFrom-Json
+          if ($checksum -cne "$hash  $name" -or $metadata.sha256 -cne $hash -or
+              $metadata.version -cne $env:RELEASE_VERSION -or $metadata.file -cne $name -or
+              $metadata.downloadUrl -cne "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:RELEASE_VERSION/$name") {
+            throw 'Downloaded release artifacts do not match the update metadata.'
+          }
+          $notes = @'
+          Windows x64 便携版：下载 ZIP，完整解压后运行 Start.cmd。
+          更新时先退出旧版，再将旧版 Data/ 复制到新目录；移动前关闭旧目录的开机自启。
+          检查更新会提示版本，下载和替换由用户手动完成。
+
+          Independently maintained by YoungJune01. Thanks to SherlockChiang and upstream contributors.
+          See ACKNOWLEDGEMENTS.md and LICENSE in the source and release package.
+          '@
+          $notes | Set-Content -LiteralPath artifacts/release-notes.md -Encoding utf8
+          gh release create "v$env:RELEASE_VERSION" $archive "$archive.sha256" artifacts/update.json `
+            --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" `
+            --title "QuickLook Next $env:RELEASE_VERSION" --notes-file artifacts/release-notes.md --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

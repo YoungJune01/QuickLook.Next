@@ -66,7 +66,9 @@ $nativeDatabaseWal = Join-Path $Root "native/quicklook_next_native/src/preview/d
 $nativeDatabaseSqlite = Join-Path $Root "native/quicklook_next_native/src/preview/database/sqlite.rs"
 $nativeOffice = Join-Path $Root "native/quicklook_next_native/src/preview/office/mod.rs"
 $nativeOfficeDocument = Join-Path $Root "native/quicklook_next_native/src/preview/office/document.rs"
+$nativeOfficeDocumentLayout = Join-Path $Root "native/quicklook_next_native/src/preview/office/document/layout.rs"
 $nativeOfficeDocumentTests = Join-Path $Root "native/quicklook_next_native/src/preview/office/document/tests.rs"
+$nativeOfficeDocumentLayoutTests = Join-Path $Root "native/quicklook_next_native/src/preview/office/document/tests/layout.rs"
 $nativeOfficeImage = Join-Path $Root "native/quicklook_next_native/src/preview/office/image.rs"
 $nativeOfficeImageTests = Join-Path $Root "native/quicklook_next_native/src/preview/office/image/tests.rs"
 $nativeOfficeLayout = Join-Path $Root "native/quicklook_next_native/src/preview/office/layout.rs"
@@ -82,6 +84,7 @@ $nativeDatabaseText = ((Get-Content -LiteralPath $nativeDatabase -Raw) + "`n" +
     (Get-Content -LiteralPath $nativeDatabaseSqlite -Raw))
 $nativeOfficeText = ((Get-Content -LiteralPath $nativePreview -Raw) + "`n" +
     (Get-Content -LiteralPath $nativeOfficeDocument -Raw) + "`n" +
+    (Get-Content -LiteralPath $nativeOfficeDocumentLayout -Raw) + "`n" +
     (Get-Content -LiteralPath $nativeOfficeImage -Raw) + "`n" +
     (Get-Content -LiteralPath $nativeOfficeLayout -Raw) + "`n" +
     (Get-Content -LiteralPath $nativeOfficePresentation -Raw) + "`n" +
@@ -527,16 +530,22 @@ Require-Pattern $textPreviewPresenter 'private bool _showLineNumbers;' `
 Require-Pattern $textPreviewPresenter '13\s*\*\s*_textScale' `
     "Text size preferences must scale plain text and code without unbounded input."
 $appSettings = Join-Path $Root "src/QuickLook.Next.App/AppSettings.cs"
-Require-Pattern $appSettings 'CurrentSchemaVersion\s*=\s*4' `
-    "Window behavior preferences must use settings schema version 4."
+Require-Pattern $appSettings 'CurrentSchemaVersion\s*=\s*5' `
+    "Settings schema 5 must discard the former global topmost preference."
 Require-Pattern $appSettings 'TextSize\s*=\s*"default"[\s\S]*TextLineNumbers\s*=\s*false' `
     "Text display preferences must retain safe defaults."
 Require-Pattern $appSettings 'SchemaVersion\s*<\s*3\s*\?\s*"default"\s*:\s*settings\.TextSize' `
     "Older settings schemas must migrate text display preferences instead of being rejected."
-Require-Pattern $appSettings 'PreviewWindowLevel\s*=\s*PreviewWindowPolicy\.StandardLevelSetting[\s\S]*ClosePreviewOnFocusLoss\s*=\s*false' `
-    "Window behavior preferences must default to the ordinary window band without focus-loss close."
-Require-Pattern $appSettings 'SchemaVersion\s*<\s*4[\s\S]*PreviewWindowPolicy\.StandardLevelSetting[\s\S]*SchemaVersion\s*>=\s*4\s*&&\s*settings\.ClosePreviewOnFocusLoss' `
-    "Older settings schemas must migrate to the non-topmost window behavior defaults."
+Require-Pattern $appSettings 'ClosePreviewOnFocusLoss\s*=\s*false' `
+    "Focus-loss close must remain off by default."
+Require-Pattern $appSettings 'SchemaVersion\s*>=\s*4\s*&&\s*settings\.ClosePreviewOnFocusLoss' `
+    "Older settings schemas must preserve supported focus-loss preferences."
+$windowOptions = Join-Path $Root "src/QuickLook.Next.App/PreviewWindowPolicy.cs"
+Require-Pattern $windowOptions 'Reset\(\) => \(Pinned, AlwaysOnTop\) = \(false, false\)' `
+    "Temporary per-window options must reset on close."
+$windowRouting = Join-Path $Root "src/QuickLook.Next.App/PreviewWindowRoutingPolicy.cs"
+Require-Pattern $windowRouting 'MaximumWindows = 3' `
+    "Preview window allocation and associated host resources must be bounded to three slots."
 $nativeBridge = Join-Path $Root "src/QuickLook.Next.App/NativeBridge.cs"
 Require-Pattern $nativeBridge 'CallInfoPreview[\s\S]*while\s*\(cap\s*<=\s*MaxNativePreviewJsonBytes\)[\s\S]*needed\s*=\s*-n' `
     "Native database summaries must honor the required output size instead of falling back to file icons."
@@ -667,8 +676,12 @@ Require-TextPattern $nativeOfficeText 'fn cache_ppt_slide_layout_placeholders<R:
     "PPT layout placeholders must remain cached to avoid repeated decompression."
 Require-Pattern $nativeOfficePresentationTests 'ppt_layout_inherits_title_type_and_geometry_from_master_once[\s\S]*shared layout/master parts must only consume the decompression budget once' `
     "PPT tests must retain the shared layout/master decompression-budget regression."
-Require-TextPattern $nativeOfficeText 'const MAX_OFFICE_DOCUMENT_PAGES:\s*usize\s*=\s*8[\s\S]*fn build_docx_layout<R:\s*Read\s*\+\s*Seek>[\s\S]*paragraph\.chars\(\)\.take\(420\)[\s\S]*page_index\s*<=\s*MAX_OFFICE_DOCUMENT_PAGES[\s\S]*MAX_OFFICE_LAYOUT_IMAGES\.min\(6\)[\s\S]*media_entries\.iter\(\)\.take\(6\)' `
+Require-Pattern $nativeOfficeDocumentLayout 'const MAX_OFFICE_DOCUMENT_PAGES:\s*usize\s*=\s*8[\s\S]*fn build_docx_layout<R:\s*Read\s*\+\s*Seek>[\s\S]*image_attempts\s*=\s*MAX_OFFICE_LAYOUT_IMAGES\.min\(6\)[\s\S]*image_attempts\s*>\s*0[\s\S]*image_attempts\s*-=\s*1[\s\S]*value\.chars\(\)\.take\(420\s*-\s*self\.text_chars\)[\s\S]*self\.page_index\s*<=\s*MAX_OFFICE_DOCUMENT_PAGES' `
     "DOCX layout must retain bounded paragraph, page, and embedded-image retention."
+Require-Pattern $nativeOfficeDocumentLayout 'context\.check_xml_event\(event_count\)[\s\S]*image_item_from_relationship\([\s\S]*flow\.flush_text\(\)[\s\S]*flow\.push\(item\)' `
+    "DOCX images must flow at their bounded, cancellable XML anchor through validated relationships."
+Require-Pattern $nativeOfficeDocumentLayoutTests 'fn docx_layout_preserves_text_image_order_and_repeated_placements[\s\S]*fn docx_layout_ignores_unreferenced_missing_external_and_unsafe_images[\s\S]*fn docx_layout_caps_images_and_failed_lookups_and_clips_paragraphs[\s\S]*fn docx_layout_cancellation_during_xml_and_malformed_dimensions_are_safe' `
+    "DOCX tests must cover ordered/repeated images, invalid references, output limits, cancellation and malformed XML."
 Require-TextPattern $nativeOfficeText 'fn docx_header_footer_entries<R:\s*Read\s*\+\s*Seek>[\s\S]*zip\.len\(\)\.min\(MAX_OFFICE_ZIP_ENTRIES\)[\s\S]*entry\.size\(\)\s*>\s*1024\s*\*\s*1024[\s\S]*entries\.truncate\(8\)' `
     "DOCX header/footer discovery must retain ZIP, part-size, and entry-count bounds."
 Require-TextPattern $nativeOfficeText 'fn extract_wordprocessing_text\([\s\S]*event_count\s*\+=\s*1[\s\S]*context\.check_xml_event\(event_count\)' `
