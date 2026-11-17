@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AppName" xml:space="preserve">
-    <value>QuickLook Next</value>
+    <value>QuickLook Next (YoungJune01)</value>
   </data>
   <data name="AppDescription" xml:space="preserve">
     <value>Preview files in File Explorer with Space.</value>
@@ -162,7 +162,7 @@
     <value>Start with Windows</value>
   </data>
   <data name="TrayExit" xml:space="preserve">
-    <value>Exit QuickLook Next</value>
+    <value>Exit QuickLook Next (YoungJune01)</value>
   </data>
   <data name="AutoStartEnableFailed" xml:space="preserve">
     <value>Could not enable start with Windows</value>
@@ -270,7 +270,7 @@
   <data name="OfficeEmbeddedImagePreview" xml:space="preserve">
     <value>Embedded image preview</value>
   </data>
-  <data name="WelcomeTitle" xml:space="preserve"><value>Welcome to QuickLook Next</value></data>
+  <data name="WelcomeTitle" xml:space="preserve"><value>Welcome to QuickLook Next (YoungJune01)</value></data>
   <data name="WelcomeHeading" xml:space="preserve"><value>Preview files without breaking your flow</value></data>
   <data name="WelcomeIntroduction" xml:space="preserve"><value>QuickLook Next is running in the notification area and is ready to preview files from File Explorer.</value></data>
   <data name="WelcomeOpenShortcut" xml:space="preserve"><value>1. Select a file in File Explorer, then press Space.</value></data>
@@ -342,7 +342,7 @@
   <data name="SyntaxHighlightingSpanLimitFormat" xml:space="preserve"><value>[Syntax highlighting disabled after {0:N0} spans]</value></data>
   <data name="OfficeEmbeddedImagePreviewFormat" xml:space="preserve"><value>{0} embedded image preview</value></data>
   <data name="AppBrandText.Text" xml:space="preserve">
-    <value>QuickLook Next</value>
+    <value>QuickLook Next (YoungJune01)</value>
   </data>
   <data name="InfoTabText.Text" xml:space="preserve">
     <value>Info</value>

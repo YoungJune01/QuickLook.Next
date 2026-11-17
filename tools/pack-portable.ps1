@@ -87,6 +87,8 @@ foreach ($file in $files | Sort-Object FullName) {
 }
 [ordered]@{
     version = $version
+    edition = 'YoungJune01'
+    repository = 'YoungJune01/QuickLook.Next'
     sourceCommit = $commit
     sourceWorktreeDirty = (@(git -C $root status --porcelain).Count -gt 0)
     dotnetRuntime = $runtimeVersion

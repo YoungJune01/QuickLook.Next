@@ -92,7 +92,7 @@ internal sealed class TrayIconManager
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYICON,
             hIcon = GetTrayIconHandle(),
-            szTip = UiStrings.AppName,
+            szTip = $"{UiStrings.AppName} {ApplicationVersion.Current}",
             szInfo = "",
             szInfoTitle = "",
         };

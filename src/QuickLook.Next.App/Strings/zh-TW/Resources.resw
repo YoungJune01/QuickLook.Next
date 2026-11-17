@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AppName" xml:space="preserve">
-    <value>QuickLook Next</value>
+    <value>QuickLook Next（YoungJune01 維護版）</value>
   </data>
   <data name="AppDescription" xml:space="preserve">
     <value>在檔案總管中按空白鍵預覽檔案。</value>
@@ -121,7 +121,7 @@
     <value>隨 Windows 啟動</value>
   </data>
   <data name="TrayExit" xml:space="preserve">
-    <value>結束 QuickLook Next</value>
+    <value>結束 QuickLook Next（YoungJune01 維護版）</value>
   </data>
   <data name="AutoStartEnableFailed" xml:space="preserve">
     <value>無法啟用隨 Windows 啟動</value>
@@ -459,7 +459,7 @@
     <value>內嵌影像預覽</value>
   </data>
   <data name="WelcomeTitle" xml:space="preserve">
-    <value>歡迎使用 QuickLook Next</value>
+    <value>歡迎使用 QuickLook Next（YoungJune01 維護版）</value>
   </data>
   <data name="WelcomeHeading" xml:space="preserve">
     <value>預覽檔案，不中斷工作流程</value>
@@ -676,7 +676,7 @@
     <value>{0} 內嵌影像預覽</value>
   </data>
   <data name="AppBrandText.Text" xml:space="preserve">
-    <value>QuickLook Next</value>
+    <value>QuickLook Next（YoungJune01 維護版）</value>
   </data>
   <data name="InfoTabText.Text" xml:space="preserve">
     <value>資訊</value>

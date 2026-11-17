@@ -4,7 +4,7 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="AppName" xml:space="preserve"><value>QuickLook Next</value></data>
+  <data name="AppName" xml:space="preserve"><value>QuickLook Next（YoungJune01 维护版）</value></data>
   <data name="AppDescription" xml:space="preserve"><value>在文件资源管理器中按空格键预览文件。</value></data>
   <data name="Ready" xml:space="preserve"><value>就绪</value></data>
   <data name="ReadyKind" xml:space="preserve"><value>就绪</value></data>
@@ -39,7 +39,7 @@
   <data name="TrayShowPreview" xml:space="preserve"><value>显示预览</value></data>
   <data name="TraySettings" xml:space="preserve"><value>设置</value></data>
   <data name="TrayAutoStart" xml:space="preserve"><value>开机自启</value></data>
-  <data name="TrayExit" xml:space="preserve"><value>退出 QuickLook Next</value></data>
+  <data name="TrayExit" xml:space="preserve"><value>退出 QuickLook Next（YoungJune01 维护版）</value></data>
   <data name="AutoStartEnableFailed" xml:space="preserve"><value>无法启用开机自启</value></data>
   <data name="AutoStartDisableFailed" xml:space="preserve"><value>无法关闭开机自启</value></data>
   <data name="SettingsTitle" xml:space="preserve"><value>设置</value></data>
@@ -156,7 +156,7 @@
   <data name="PackageHeroSubtitle" xml:space="preserve"><value>应用包图标</value></data>
   <data name="ExecutableHeroSubtitle" xml:space="preserve"><value>应用程序图标</value></data>
   <data name="OfficeEmbeddedImagePreview" xml:space="preserve"><value>嵌入图片预览</value></data>
-  <data name="WelcomeTitle" xml:space="preserve"><value>欢迎使用 QuickLook Next</value></data>
+  <data name="WelcomeTitle" xml:space="preserve"><value>欢迎使用 QuickLook Next（YoungJune01 维护版）</value></data>
   <data name="WelcomeHeading" xml:space="preserve"><value>无需打断工作流即可预览文件</value></data>
   <data name="WelcomeIntroduction" xml:space="preserve"><value>QuickLook Next 正在通知区域运行，随时可以预览文件资源管理器中的文件。</value></data>
   <data name="WelcomeOpenShortcut" xml:space="preserve"><value>1. 在文件资源管理器中选择文件，然后按空格键。</value></data>
@@ -227,7 +227,7 @@
   <data name="SyntaxHighlightingCharacterLimitFormat" xml:space="preserve"><value>[超过 {0:N0} 个字符后已禁用语法高亮]</value></data>
   <data name="SyntaxHighlightingSpanLimitFormat" xml:space="preserve"><value>[超过 {0:N0} 个区段后已禁用语法高亮]</value></data>
   <data name="OfficeEmbeddedImagePreviewFormat" xml:space="preserve"><value>{0} 嵌入图像预览</value></data>
-  <data name="AppBrandText.Text" xml:space="preserve"><value>QuickLook Next</value></data>
+  <data name="AppBrandText.Text" xml:space="preserve"><value>QuickLook Next（YoungJune01 维护版）</value></data>
   <data name="InfoTabText.Text" xml:space="preserve"><value>信息</value></data>
   <data name="ExifTabText.Text" xml:space="preserve"><value>EXIF</value></data>
   <data name="MoreTabText.Text" xml:space="preserve"><value>更多</value></data>

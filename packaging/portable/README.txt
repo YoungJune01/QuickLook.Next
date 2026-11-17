@@ -1,4 +1,4 @@
-QuickLook Next - Windows x64 Portable
+QuickLook Next (YoungJune01 Edition) - Windows x64 Portable
 
 Extract the complete ZIP to a writable local folder, then double-click Start.cmd.
 Do not run from inside the ZIP or copy only the EXE. Exit other QuickLook

@@ -10,6 +10,7 @@
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == '' and ('$(ContinuousIntegrationBuild)' == 'true' or '$(Configuration)' == 'Release')">true</TreatWarningsAsErrors>
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">false</TreatWarningsAsErrors>
     <Company>QuickLook Next</Company>
+    <Product>QuickLook Next (YoungJune01)</Product>
     <Authors>SherlockChiang; YoungJune01</Authors>
     <RepositoryUrl>https://github.com/YoungJune01/QuickLook.Next</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

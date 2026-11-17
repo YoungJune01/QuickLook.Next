@@ -194,7 +194,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <Image x:Name="AppIcon" Width="48" Height="48" />
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="QuickLook Next" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Uid="AppBrandText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
                                     <TextBlock x:Name="VersionText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
                             </StackPanel>

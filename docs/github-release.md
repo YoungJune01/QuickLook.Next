@@ -31,6 +31,37 @@ ZIP 留在本地；完整软件包通过 GitHub Releases 分发。主分支为 `
 使用前须按自己的证书、包身份和 GitHub Environment 配置签名。这不是便携发布的前置条件。
 普通提交不要以 `release:` 开头，该前缀仍保留给签名稳定版流程。
 
+## 本机最终产物的固定目录
+
+从维护版 `1.1.0` 起，应用、托盘和发布标题明确显示 YoungJune01 维护版标识，
+与上游 `1.0.4` 区分。内部程序集名称和原有设置路径保持兼容。
+
+GitHub Actions 的 `artifacts/` 是构建中间目录。本机将正式 Release 的 ZIP 和同名
+`.zip.sha256` 下载到一起后，运行以下命令集中保存最终产物：
+
+```powershell
+pwsh -NoProfile -File tools/save-portable-release.ps1 -ArchivePath <下载的便携ZIP路径>
+```
+
+默认固定位置为源码目录旁的 `QuickLook.Next-Releases/`，可用 `-OutputDirectory` 指定其他位置：
+
+```text
+QuickLook.Next-Releases/
+  Start.cmd                 固定启动入口，指向当前保存的版本
+  README.txt                当前版本和使用说明
+  current.json              当前版本、源码提交及 ZIP 校验值
+  v1.1.0/
+    QuickLook.Next-1.1.0-portable-win-x64.zip
+    QuickLook.Next-1.1.0-portable-win-x64.zip.sha256
+    QuickLook.Next-1.1.0-portable-win-x64/
+      Start.cmd
+      App/  Runtime/  Data/  Licenses/
+```
+
+保存脚本核对 ZIP 校验值、维护版身份、版本、完整文件清单及包内空 Data；
+验证通过后才更新固定启动入口。每个版本单独保存，重复保存同一版本会拒绝覆盖，
+保护已有设置。升级前从托盘退出旧版，按需复制旧版 `Data/` 到新版；分发时使用原始 ZIP。
+
 ## 更新源
 
 应用的仓库、下载页与检查更新地址统一在

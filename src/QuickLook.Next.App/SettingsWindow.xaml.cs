@@ -43,7 +43,7 @@ public sealed partial class SettingsWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
         _titleBarInsetController = new TitleBarInsetController(this, TitleBar);
-        Title = UiStrings.SettingsTitle;
+        Title = $"{UiStrings.AppName} - {UiStrings.SettingsTitle}";
         ApplyStrings();
         ApplyWindowAppearance();
         Activated += OnActivated;

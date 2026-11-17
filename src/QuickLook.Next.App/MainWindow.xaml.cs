@@ -1611,7 +1611,7 @@ public sealed partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(title))
             title = UiStrings.AppName;
 
-        Title = title;
+        Title = title == UiStrings.AppName ? title : $"{title} - {UiStrings.AppName}";
         PreviewTitleText.Text = title;
         PreviewKindPillText.Text = LocalizePreviewKind(ready.Kind);
         PreviewMetaText.Text = BuildPreviewMetaLine(ready, path, _currentProbe);

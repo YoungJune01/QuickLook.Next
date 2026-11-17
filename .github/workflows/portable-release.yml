@@ -133,6 +133,7 @@ jobs:
             throw 'Downloaded release artifacts do not match the update metadata.'
           }
           $notes = @'
+          YoungJune01 维护版：使用独立版本号，托盘、预览窗口与关于页明确显示维护版标识。
           Windows x64 便携版：下载 ZIP，完整解压后运行 Start.cmd。
           更新时先退出旧版，再将旧版 Data/ 复制到新目录；移动前关闭旧目录的开机自启。
           检查更新会提示版本，下载和替换由用户手动完成。
@@ -143,5 +144,5 @@ jobs:
           $notes | Set-Content -LiteralPath artifacts/release-notes.md -Encoding utf8
           gh release create "v$env:RELEASE_VERSION" $archive "$archive.sha256" artifacts/update.json `
             --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" `
-            --title "QuickLook Next $env:RELEASE_VERSION" --notes-file artifacts/release-notes.md --latest
+            --title "QuickLook Next $env:RELEASE_VERSION (YoungJune01 Edition)" --notes-file artifacts/release-notes.md --latest
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

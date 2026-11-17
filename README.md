@@ -1,4 +1,4 @@
-# QuickLook Next
+# QuickLook Next · YoungJune01 Edition
 
 [简体中文](README_CN.md) · [Downloads](https://github.com/YoungJune01/QuickLook.Next/releases) · [Acknowledgements](ACKNOWLEDGEMENTS.md)
 
@@ -12,6 +12,9 @@ all upstream contributors. This repository manages its own source and releases.
 Feature development is currently paused; issues and release maintenance are
 managed here.
 
+The maintained edition starts its own version line at **1.1.0**. The tray tooltip,
+preview window and About page identify the YoungJune01 edition.
+
 ## Download and use
 
 Download `QuickLook.Next-<version>-portable-win-x64.zip` from this repository's
@@ -19,6 +22,10 @@ Download `QuickLook.Next-<version>-portable-win-x64.zip` from this repository's
 complete ZIP to a writable local folder, and run `Start.cmd`. Exit other
 QuickLook instances first. The package carries its runtime and keeps settings
 and cache in `Data/`; no developer SDK or signing certificate is required.
+
+Maintainer copies are collected in **`QuickLook.Next-Releases/`** beside the source
+folder. Its **`Start.cmd`** launches the current saved version. Each `vX.Y.Z/` folder
+contains the ZIP, SHA-256 checksum and extracted package. See [release management](docs/github-release.md).
 
 Settings → About → Check for updates reads this repository's release feed.
 It reports available versions; download and replacement are manual. To update,

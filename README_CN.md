@@ -1,10 +1,11 @@
-# QuickLook Next
+# QuickLook Next · YoungJune01 维护版
 
 [English](README.md) · [下载](https://github.com/YoungJune01/QuickLook.Next/releases) · [致谢](ACKNOWLEDGEMENTS.md)
 
 Windows x64 文件预览工具。在桌面或资源管理器当前标签页选中文件，按 **空格键** 预览。
 
 本版本由 **YoungJune01** 基于上游 `1.0.4` 源码快照独立维护。
+维护版从 **1.1.0** 开始使用独立版本号，托盘提示、预览窗口和关于页均显示维护版标识。
 感谢原作者 **SherlockChiang** 开源
 [QuickLook.Next](https://github.com/SherlockChiang/QuickLook.Next)，
 以及所有上游贡献者。本仓库负责自己的源码、发布和更新。
@@ -16,6 +17,10 @@ Windows x64 文件预览工具。在桌面或资源管理器当前标签页选�
 `QuickLook.Next-<版本>-portable-win-x64.zip`，完整解压到可写文件夹，双击
 `Start.cmd`。先退出其他 QuickLook 实例。运行时随包携带，设置和缓存位于
 `Data/`，无需开发 SDK 或导入签名证书。
+
+维护者本机的最终产物统一存放在源码目录旁的 **`QuickLook.Next-Releases/`**：
+根目录的 **`Start.cmd`** 始终启动当前保存的版本；`v1.1.0/` 等版本目录同时保存 ZIP、
+SHA-256 校验文件和完整解压包，便于查找、分发和回退。保存方法见[发布管理](docs/github-release.md)。
 
 “设置 → 关于 → 检查更新”读取本仓库的更新源，提示可用版本；下载与替换由用户
 手动完成。更新时先退出旧版，将新版解压到新目录，再复制旧版 `Data/` 保留设置。

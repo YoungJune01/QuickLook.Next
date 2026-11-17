@@ -3203,6 +3203,9 @@ Invoke-CheckedScript -Path $releaseWorkflowTest -Arguments @{ Root = $Root } `
 Invoke-CheckedScript -Path (Join-Path $PSScriptRoot 'test-portable-update-metadata.ps1') `
     -FailureMessage 'Portable update metadata tests failed'
 
+Invoke-CheckedScript -Path (Join-Path $PSScriptRoot 'test-save-portable-release.ps1') `
+    -FailureMessage 'Portable release storage tests failed'
+
 $installerScriptTest = Join-Path $PSScriptRoot "test-installer-script.ps1"
 Invoke-CheckedScript -Path $installerScriptTest `
     -FailureMessage "Installer script guard failed"
