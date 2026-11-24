@@ -394,4 +394,7 @@ must be reassembled and verified before it replaces an accepted payload.
 Manual acceptance belongs to the owner. Repeated selection/sheet switching,
 empty-selection, theme/accessibility, cancellation/error recovery, physical HDR,
 and controlled resource/performance runs remain separate evidence. Historical
-RasterHost resource-test fluctuations remain open, without relaxed limits.
+RasterHost resource-test measurement and duplex cancellation coverage are
+documented in [rasterhost-test-measurement.md](rasterhost-test-measurement.md);
+the HANDLE budget remains unchanged. Historical metadata-child shutdown
+failures still need separate evidence.

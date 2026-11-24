@@ -148,6 +148,87 @@ public sealed class PipeChannelTests
         Assert.Equal(valid, Assert.IsType<PreviewError>(await receive.WaitAsync(Timeout)));
     }
 
+    [Fact]
+    public async Task Send_cancellation_after_a_write_prefix_closes_the_channel()
+    {
+        using var stream = new PausingWriteStream();
+        using var sender = new PipeChannel(stream);
+        using var cancellation = new CancellationTokenSource();
+        var thumbnail = new PreviewImageThumbnail("canceled", 32, 32, new byte[32 * 32 * 4]);
+        Task send = sender.SendAsync(thumbnail, cancellation.Token);
+        await stream.Started.Task.WaitAsync(Timeout);
+
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => send.WaitAsync(Timeout));
+        Assert.True(stream.WasDisposed, "A partially written frame must close the transport.");
+        await Assert.ThrowsAsync<IOException>(() => sender.SendAsync(new PreviewClose("replacement")).WaitAsync(Timeout));
+    }
+
+    [Fact]
+    public async Task Send_cancels_a_queued_frame_without_writing_it()
+    {
+        using var stream = new PausingWriteStream();
+        using var sender = new PipeChannel(stream);
+        Task first = sender.SendAsync(new PreviewClose("first"));
+        await stream.Started.Task.WaitAsync(Timeout);
+
+        using var cancellation = new CancellationTokenSource();
+        Task queued = sender.SendAsync(new PreviewClose("canceled"), cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued.WaitAsync(Timeout));
+        stream.Resume.TrySetResult();
+        await first.WaitAsync(Timeout);
+        await sender.SendAsync(new PreviewClose("last")).WaitAsync(Timeout);
+
+        using var receiver = new PipeChannel(new MemoryStream(stream.ToArray()));
+        Assert.Equal("first", Assert.IsType<PreviewClose>(await receiver.ReceiveAsync().WaitAsync(Timeout)).RequestId);
+        Assert.Equal("last", Assert.IsType<PreviewClose>(await receiver.ReceiveAsync().WaitAsync(Timeout)).RequestId);
+        Assert.Null(await receiver.ReceiveAsync().WaitAsync(Timeout));
+    }
+
+    private sealed class PausingWriteStream : Stream
+    {
+        private readonly MemoryStream _bytes = new();
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Resume { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool WasDisposed { get; private set; }
+        public byte[] ToArray() => _bytes.ToArray();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _bytes.Length;
+        public override long Position { get => _bytes.Position; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public override int Read(byte[] buffer, int offset, int count) => _bytes.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => _bytes.Write(buffer, offset, count);
+
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!Started.Task.IsCompleted)
+            {
+                int prefixLength = Math.Max(1, buffer.Length / 2);
+                await _bytes.WriteAsync(buffer[..prefixLength], cancellationToken);
+                Started.TrySetResult();
+                await Resume.Task.WaitAsync(cancellationToken);
+                buffer = buffer[prefixLength..];
+            }
+            await _bytes.WriteAsync(buffer, cancellationToken);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                WasDisposed = true;
+                _bytes.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+
     private sealed class ConnectedPipePair : IAsyncDisposable
     {
         private bool _clientDisposed;

@@ -124,9 +124,23 @@ if ($protocolText -notmatch 'MaxEdge = 96' -or
     $builderText -match '\bFile\.|\bDirectory\.|TryDecode') {
     Add-Failure 'Current-image thumbnails must sample bounded existing pixels without opening or decoding another file.'
 }
-if ($rasterText -notmatch '(?s)surfacePublishGate.Release\(\);.*ImageThumbnailBuilder.Create.*activeRequestId.*SendAsync\(thumbnail, cancellationToken\)' -or
+$thumbnailPublication = [regex]::Match(
+    $rasterText,
+    '(?s)PreviewImageThumbnail\? thumbnail =.*?(?=\r?\n\s*return await PublishImageWaveformAsync)').Value
+$thumbnailPublication = [regex]::Replace($thumbnailPublication, '(?m)^\s*//[^\r\n]*', '')
+# Cancellation belongs before the wire frame, under the same gate as current-request validation.
+# Passing the request token into the frame write could truncate its Base64/JSON payload.
+$publicationPattern = '(?s)ImageThumbnailBuilder\.Create\(open\.RequestId, image, cancellationToken\);\s*' +
+    'if \(thumbnail is not null\)\s*\{\s*await surfacePublishGate\.WaitAsync\(cancellationToken\);\s*try\s*\{\s*' +
+    'cancellationToken\.ThrowIfCancellationRequested\(\);\s*' +
+    'if \(!string\.Equals\(open\.RequestId, activeRequestId, StringComparison\.Ordinal\)\)\s*return false;\s*' +
+    'await channel\.SendAsync\(thumbnail\);\s*\}\s*finally\s*\{\s*surfacePublishGate\.Release\(\);\s*\}'
+$readyBeforeThumbnailPattern = '(?s)await channel\.SendAsync\(new PreviewReady\(.*?\)\);\s*\}\s*finally\s*' +
+    '\{\s*surfacePublishGate\.Release\(\);\s*\}\s*PreviewImageThumbnail\? thumbnail ='
+if ($rasterText -notmatch $readyBeforeThumbnailPattern -or
+    $thumbnailPublication -notmatch $publicationPattern -or
     $mainWindowText -notmatch 'void OnImageThumbnailReceived[\s\S]{0,240}?IsCurrentRequest\(message.RequestId\)[\s\S]{0,180}?HasValidPixels\(\)') {
-    Add-Failure 'Thumbnail sidecars must follow surface publication and retain cancellation/current-request validation.'
+    Add-Failure 'Thumbnail sidecars must follow readiness, validate cancellation/current request under the surface gate, and commit a complete wire frame.'
 }
 if ($sidecarText -notmatch '(?s)void Clear\(\).*?_previewThumbnail = null' -or
     $sidecarText -notmatch 'PreviewThumbnailFor\(path\) \?\? source') {
