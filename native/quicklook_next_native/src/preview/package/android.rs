@@ -133,16 +133,16 @@ fn android_manifest_icon_reference(xml: &str) -> Option<String> {
     let mut round_icon = None;
     loop {
         match reader.read_event() {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"application" => {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == "application" => {
                 for attr in e.attributes().flatten() {
                     let key = attr.key.as_ref();
                     let Ok(value) = attr.normalized_value(XmlVersion::Implicit1_0) else {
                         continue;
                     };
-                    if key == b"android:icon" || key == b"icon" {
+                    if key == "android:icon" || key == "icon" {
                         return Some(value.into_owned());
                     }
-                    if key == b"android:roundIcon" || key == b"roundIcon" {
+                    if key == "android:roundIcon" || key == "roundIcon" {
                         round_icon = Some(value.into_owned());
                     }
                 }
@@ -654,11 +654,10 @@ fn render_android_icon_xml<R: Read + Seek>(
         loop {
             match reader.read_event() {
                 Ok(Event::Text(text)) => {
-                    if let Some(color) = text.decode().ok().and_then(|value| {
-                        quick_xml::escape::unescape(&value)
-                            .ok()
-                            .and_then(|unescaped| parse_android_color(&unescaped))
-                    }) {
+                    if let Some(color) = quick_xml::escape::unescape(&text)
+                        .ok()
+                        .and_then(|unescaped| parse_android_color(&unescaped))
+                    {
                         return Some(DynamicImage::ImageRgba8(RgbaImage::from_pixel(
                             512, 512, color,
                         )));
@@ -696,13 +695,11 @@ fn android_xml_drawable_reference(xml: &str, element: &str) -> Option<String> {
     let mut reader = Reader::from_str(xml);
     loop {
         match reader.read_event() {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e))
-                if e.name().as_ref() == element.as_bytes() =>
-            {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == element => {
                 for attr in e.attributes().flatten() {
                     if matches!(
                         attr.key.as_ref(),
-                        b"android:drawable" | b"drawable" | b"android:color" | b"color"
+                        "android:drawable" | "drawable" | "android:color" | "color"
                     ) {
                         return attr
                             .normalized_value(XmlVersion::Implicit1_0)
@@ -748,18 +745,18 @@ fn render_android_vector(xml: &str) -> Option<DynamicImage> {
     let mut group_depth = 0usize;
     loop {
         match reader.read_event() {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"vector" => {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == "vector" => {
                 viewport_width =
-                    android_float_attribute(&e, b"android:viewportWidth").unwrap_or(viewport_width);
-                viewport_height = android_float_attribute(&e, b"android:viewportHeight")
+                    android_float_attribute(&e, "android:viewportWidth").unwrap_or(viewport_width);
+                viewport_height = android_float_attribute(&e, "android:viewportHeight")
                     .unwrap_or(viewport_height);
             }
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"path" => {
-                let data = android_string_attribute(&e, b"android:pathData")?;
-                let fill = android_string_attribute(&e, b"android:fillColor")
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == "path" => {
+                let data = android_string_attribute(&e, "android:pathData")?;
+                let fill = android_string_attribute(&e, "android:fillColor")
                     .filter(|value| parse_android_color(value).is_some())
                     .unwrap_or_else(|| "none".to_string());
-                let stroke = android_string_attribute(&e, b"android:strokeColor")
+                let stroke = android_string_attribute(&e, "android:strokeColor")
                     .filter(|value| parse_android_color(value).is_some());
                 if fill != "none" || stroke.is_some() {
                     paths.push_str(&format!(
@@ -769,7 +766,7 @@ fn render_android_vector(xml: &str) -> Option<DynamicImage> {
                     ));
                     if let Some(stroke) = stroke {
                         let width =
-                            android_float_attribute(&e, b"android:strokeWidth").unwrap_or(1.0);
+                            android_float_attribute(&e, "android:strokeWidth").unwrap_or(1.0);
                         paths.push_str(&format!(
                             " stroke=\"{}\" stroke-width=\"{}\"",
                             stroke, width
@@ -778,11 +775,11 @@ fn render_android_vector(xml: &str) -> Option<DynamicImage> {
                     paths.push_str("/>");
                 }
             }
-            Ok(Event::Start(e)) if e.name().as_ref() == b"group" => {
+            Ok(Event::Start(e)) if e.name().as_ref() == "group" => {
                 paths.push_str(&android_svg_group_start(&e));
                 group_depth += 1;
             }
-            Ok(Event::End(e)) if e.name().as_ref() == b"group" && group_depth > 0 => {
+            Ok(Event::End(e)) if e.name().as_ref() == "group" && group_depth > 0 => {
                 paths.push_str("</g>");
                 group_depth -= 1;
             }
@@ -817,13 +814,13 @@ fn render_android_vector(xml: &str) -> Option<DynamicImage> {
 }
 
 fn android_svg_group_start(element: &BytesStart<'_>) -> String {
-    let pivot_x = android_float_attribute(element, b"android:pivotX").unwrap_or(0.0);
-    let pivot_y = android_float_attribute(element, b"android:pivotY").unwrap_or(0.0);
-    let scale_x = android_float_attribute(element, b"android:scaleX").unwrap_or(1.0);
-    let scale_y = android_float_attribute(element, b"android:scaleY").unwrap_or(1.0);
-    let translate_x = android_float_attribute(element, b"android:translateX").unwrap_or(0.0);
-    let translate_y = android_float_attribute(element, b"android:translateY").unwrap_or(0.0);
-    let rotation = android_float_attribute(element, b"android:rotation").unwrap_or(0.0);
+    let pivot_x = android_float_attribute(element, "android:pivotX").unwrap_or(0.0);
+    let pivot_y = android_float_attribute(element, "android:pivotY").unwrap_or(0.0);
+    let scale_x = android_float_attribute(element, "android:scaleX").unwrap_or(1.0);
+    let scale_y = android_float_attribute(element, "android:scaleY").unwrap_or(1.0);
+    let translate_x = android_float_attribute(element, "android:translateX").unwrap_or(0.0);
+    let translate_y = android_float_attribute(element, "android:translateY").unwrap_or(0.0);
+    let rotation = android_float_attribute(element, "android:rotation").unwrap_or(0.0);
     format!(
         "<g transform=\"translate({},{}) rotate({}) scale({},{}) translate({},{})\">",
         pivot_x + translate_x,
@@ -836,13 +833,13 @@ fn android_svg_group_start(element: &BytesStart<'_>) -> String {
     )
 }
 
-fn android_string_attribute(element: &BytesStart<'_>, name: &[u8]) -> Option<String> {
+fn android_string_attribute(element: &BytesStart<'_>, name: &str) -> Option<String> {
     element
         .attributes()
         .flatten()
         .find(|attr| {
             attr.key.as_ref() == name
-                || attr.key.as_ref() == name.strip_prefix(b"android:").unwrap_or(name)
+                || attr.key.as_ref() == name.strip_prefix("android:").unwrap_or(name)
         })
         .and_then(|attr| {
             attr.normalized_value(XmlVersion::Implicit1_0)
@@ -851,7 +848,7 @@ fn android_string_attribute(element: &BytesStart<'_>, name: &[u8]) -> Option<Str
         })
 }
 
-fn android_float_attribute(element: &BytesStart<'_>, name: &[u8]) -> Option<f32> {
+fn android_float_attribute(element: &BytesStart<'_>, name: &str) -> Option<f32> {
     android_string_attribute(element, name)?
         .trim_end_matches("dp")
         .parse()

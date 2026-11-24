@@ -8,7 +8,7 @@ use quick_xml::{
 use super::{
     attr_value, cell_reference_column, clean_table_cell, is_inside_non_origin_merge,
     local_xml_name, resolve_cell_value, xlsx_col_span_width, xlsx_col_x, xlsx_row_span_height,
-    xlsx_row_y, xml_general_ref, xml_unescape_bytes, OfficeCellDto, OfficeContext, OfficeResult,
+    xlsx_row_y, xml_general_ref, xml_unescape_str, OfficeCellDto, OfficeContext, OfficeResult,
     XlsxMergeRegion, XlsxSheetMetrics, XlsxStyle, MAX_OFFICE_ROWS,
 };
 
@@ -131,7 +131,7 @@ pub(super) fn parse_worksheet_layout_cells(
             },
             Ok(Event::Text(e)) if in_value || in_inline_text => {
                 if let Some(input) = current.as_mut() {
-                    input.value.push_str(&xml_unescape_bytes(e.as_ref()));
+                    input.value.push_str(&xml_unescape_str(e.as_ref()));
                 }
             }
             Ok(Event::GeneralRef(e)) if in_value || in_inline_text => {
@@ -141,7 +141,7 @@ pub(super) fn parse_worksheet_layout_cells(
             }
             Ok(Event::CData(e)) if in_value || in_inline_text => {
                 if let Some(input) = current.as_mut() {
-                    input.value.push_str(&String::from_utf8_lossy(e.as_ref()));
+                    input.value.push_str(e.as_ref());
                 }
             }
             Ok(Event::Eof) => break,

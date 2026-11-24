@@ -12,7 +12,7 @@ use crate::preview::office::layout::{
     image_item_from_relationship, parse_relationships, OfficeImagePlacement,
 };
 use crate::preview::{
-    attr_value, local_xml_name, read_office_zip_text, xml_general_ref, xml_unescape_bytes,
+    attr_value, local_xml_name, read_office_zip_text, xml_general_ref, xml_unescape_str,
     OfficeContext, OfficeLayoutDto, OfficeLayoutItemDto, OfficePageDto, OfficeResult,
     MAX_OFFICE_LAYOUT_IMAGES, OFFICE_EMUS_PER_DIP,
 };
@@ -178,10 +178,10 @@ pub(super) fn build_docx_layout<R: Read + Seek>(
                 }
             }
             Ok(Event::Text(e)) if in_text => {
-                flow.append(&xml_unescape_bytes(e.as_ref()));
+                flow.append(&xml_unescape_str(e.as_ref()));
             }
             Ok(Event::GeneralRef(e)) if in_text => flow.append(&xml_general_ref(e.as_ref())),
-            Ok(Event::CData(e)) if in_text => flow.append(&String::from_utf8_lossy(e.as_ref())),
+            Ok(Event::CData(e)) if in_text => flow.append(e.as_ref()),
             Ok(Event::Eof) => break,
             Err(_) => break,
             _ => {}
