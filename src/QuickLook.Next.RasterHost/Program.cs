@@ -825,7 +825,9 @@ async Task<bool> HandleImageOpenAsync(
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(open.RequestId, activeRequestId, StringComparison.Ordinal))
                 return false;
-            await channel.SendAsync(thumbnail, cancellationToken);
+            // Check request cancellation before publishing, then commit the whole wire frame, as
+            // surface/ready publication does above. Host supervision bounds a stalled transport.
+            await channel.SendAsync(thumbnail);
         }
         finally
         {
