@@ -50,7 +50,9 @@ Owner acceptance covers the reported desktop, Explorer-tab, and Excel scenarios.
 No claim is made for a new MSIX installation, physical HDR, all optional system
 codecs, or controlled performance measurements unless separately executed.
 
-Historical `E26-04` HANDLE-budget fluctuations and metadata-child pipe closure
-remain follow-up work: passing unchanged reruns do not explain a prior failure.
+RasterHost duplex and HANDLE-growth test design, including the real-host leak
+positive control, is described in [rasterhost-test-measurement.md](rasterhost-test-measurement.md).
+Historical `E26-04` metadata-child pipe closure remains follow-up work:
+passing unchanged reruns do not explain a prior failure.
 New failures must retain their first logs and exit codes rather than be hidden by
 retries, broader privileges, or increased budgets.

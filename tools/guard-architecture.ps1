@@ -3143,6 +3143,10 @@ $thumbnailPriorityGuard = Join-Path $PSScriptRoot "guard-thumbnail-priority.ps1"
 Invoke-CheckedScript -Path $thumbnailPriorityGuard -Arguments @{ Root = $Root } `
     -FailureMessage "Thumbnail priority guard failed"
 
+$thumbnailPublicationTest = Join-Path $PSScriptRoot "test-thumbnail-publication-guard.ps1"
+Invoke-CheckedScript -Path $thumbnailPublicationTest -Arguments @{ Root = $Root } `
+    -FailureMessage "Thumbnail publication guard fixtures failed"
+
 $performanceBoundsGuard = Join-Path $PSScriptRoot "guard-performance-bounds.ps1"
 Invoke-CheckedScript -Path $performanceBoundsGuard -Arguments @{ Root = $Root } `
     -FailureMessage "Performance bounds guard failed"

@@ -13,16 +13,17 @@ namespace QuickLook.Next.RasterHost.IntegrationTests;
 public sealed class RasterHostStaticImageHandleTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Mixed_format_reopens_release_sources_and_ignore_previous_request_close(bool cancelBeforeReceiving)
+    [InlineData(false, 0)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1024)]
+    public async Task Mixed_format_reopens_release_sources_and_ignore_previous_request_close(bool cancelBeforeReceiving, int pipeBufferSize)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         string pipeName = $"quicklook_next_raster_mixed_test_{Environment.ProcessId}_{RandomNumberGenerator.GetHexString(16)}";
         string token = RandomNumberGenerator.GetHexString(32);
         await using var pipe = new NamedPipeServerStream(
             pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly, pipeBufferSize, pipeBufferSize);
         string hostPath = Path.Combine(AppContext.BaseDirectory, "RasterHost", "QuickLook.Next.RasterHost.exe");
         string physicalPath = Path.Combine(Path.GetTempPath(), $"quicklook-next-mixed-{Guid.NewGuid():N}.bin");
         string logicalStem = Path.Combine(Path.GetTempPath(), $"missing-mixed-{Guid.NewGuid():N}");
@@ -47,8 +48,9 @@ public sealed class RasterHostStaticImageHandleTests
         {
             await pipe.WaitForConnectionAsync(timeout.Token);
             using var channel = new PipeChannel(pipe);
+            await using var receiver = new RasterHostMessageReader(channel, timeout.Token);
             await channel.SendAsync(new Hello(Environment.ProcessId, token), timeout.Token);
-            Assert.IsType<HostReady>(await channel.ReceiveAsync(timeout.Token));
+            Assert.IsType<HostReady>(await receiver.ReceiveAsync(timeout.Token));
             string? previousRequestId = null;
             for (int round = 0; round < 3; round++)
             {
@@ -81,8 +83,9 @@ public sealed class RasterHostStaticImageHandleTests
                                 TargetWidth = 64,
                                 TargetHeight = 64,
                             }, timeout.Token);
-                            // Cancel without awaiting any preview output, then reopen the same
+                            // Cancel without consuming any preview output, then reopen the same
                             // exact file object with a distinct request and receiver-owned HANDLE.
+                            // The independent pipe reader still drains output, as it does in the App.
                             await channel.SendAsync(new PreviewClose(canceledRequestId), timeout.Token);
                             cancelSentTimestamp = Stopwatch.GetTimestamp();
                         }
@@ -102,7 +105,7 @@ public sealed class RasterHostStaticImageHandleTests
                     // Pipe ordering places this stale close after the new open.
                     if (previousRequestId is not null)
                         await channel.SendAsync(new PreviewClose(previousRequestId), timeout.Token);
-                    await ReceiveStaticImagePreviewAsync(channel, host, requestId, timeout.Token, canceledRequestId);
+                    await ReceiveStaticImagePreviewAsync(channel, host, requestId, timeout.Token, canceledRequestId, receiver);
                     openToComplete.Stop();
                     Assert.False(TryOverwriteFile(physicalPath));
                     double? cancelToReadyMs = cancelSentTimestamp is long cancelTimestamp
@@ -130,7 +133,8 @@ public sealed class RasterHostStaticImageHandleTests
             finally { try { File.Delete(physicalPath); } catch { } }
         }
         RasterHostProcessTestHelper.AssertCleanExit(host, hostExited);
-        WriteMixedPreviewLatencyReport(latencySamples, cancelBeforeReceiving);
+        if (pipeBufferSize == 0)
+            WriteMixedPreviewLatencyReport(latencySamples, cancelBeforeReceiving);
     }
 
     [Fact]
@@ -261,14 +265,23 @@ public sealed class RasterHostStaticImageHandleTests
     }
 
     [Fact]
-    public async Task Repeated_image_handle_previews_release_sources_without_linear_handle_growth()
+    public Task Repeated_image_handle_previews_release_sources_without_linear_handle_growth()
+        => CheckImageHandleGrowthAsync(retainSurfaceTransfers: false);
+
+    [Fact]
+    public Task Image_handle_growth_probe_detects_an_unreleased_surface_per_preview()
+        => CheckImageHandleGrowthAsync(retainSurfaceTransfers: true);
+
+    private static async Task CheckImageHandleGrowthAsync(bool retainSurfaceTransfers)
     {
-        // Hosted .NET/D3D stacks can continue creating bounded worker/runtime handles after the
-        // first few previews. Warm through that startup ramp before measuring the 32-cycle slope;
-        // a per-preview leak still exceeds the unchanged budget during the measured window.
+        // A fixed number of fast previews does not stabilize the hosted runtime's worker pool.
+        // Compare equal 32-preview windows across 64 further previews, rather than an eight-sample
+        // startup peak against every later transient. Keep the 12-handle budget: a one-per-preview
+        // leak grows by at least 64 handles between the first and last windows. The positive control
+        // deliberately withholds surface releases and must trip this same probe on the real host.
         const int warmupCycleCount = 64;
-        const int baselineWindowCycleCount = 8;
-        const int measuredCycleCount = 32;
+        const int windowCycleCount = 32;
+        const int windowCount = 3;
         const int handleGrowthBudget = 12;
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         string pipeName = $"quicklook_next_raster_cycle_test_{Environment.ProcessId}_{RandomNumberGenerator.GetHexString(16)}";
@@ -292,6 +305,7 @@ public sealed class RasterHostStaticImageHandleTests
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "static.ico"),
             timeout.Token);
         bool hostExited = false;
+        var samples = new List<RasterResourceSample>();
 
         try
         {
@@ -300,15 +314,11 @@ public sealed class RasterHostStaticImageHandleTests
             await channel.SendAsync(new Hello(Environment.ProcessId, token), timeout.Token);
             Assert.IsType<HostReady>(await channel.ReceiveAsync(timeout.Token));
 
-            int baselinePeakHandles = 0;
-            int peakHandles = 0;
-            int lastMeasuredHandles = 0;
+            var peakHandles = new int[windowCount];
             // Thread counts are diagnostics only: each runtime thread owns handles, so they show
             // whether a budget failure follows thread growth or a per-preview resource.
-            int baselinePeakThreads = 0;
-            int peakThreads = 0;
-            int lastMeasuredThreads = 0;
-            for (int cycle = 0; cycle <= warmupCycleCount + measuredCycleCount; cycle++)
+            var peakThreads = new int[windowCount];
+            for (int cycle = 0; cycle <= warmupCycleCount + windowCycleCount * windowCount; cycle++)
             {
                 await File.WriteAllBytesAsync(physicalPath, image, timeout.Token);
                 string requestId = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
@@ -347,7 +357,10 @@ public sealed class RasterHostStaticImageHandleTests
                             WindowsHandleTransfer.DuplicateHandleFromProcess(host.SafeHandle, surface.SharedHandle),
                             ownsHandle: true);
                         Assert.False(localSurfaceHandle.IsInvalid);
-                        await channel.SendAsync(new PreviewSurfaceRelease(surface.TransferId), timeout.Token);
+                        // Keep the injected leak within the host's bounded 128-transfer capacity;
+                        // all 96 deliberately retained handles are reclaimed on process teardown.
+                        if (!retainSurfaceTransfers || cycle <= warmupCycleCount)
+                            await channel.SendAsync(new PreviewSurfaceRelease(surface.TransferId), timeout.Token);
                     }
                     ready = message as PreviewReady ?? ready;
                     waveform = message as PreviewImageWaveform ?? waveform;
@@ -358,27 +371,23 @@ public sealed class RasterHostStaticImageHandleTests
                 host.Refresh();
                 int handleCount = host.HandleCount;
                 int threadCount = host.Threads.Count;
-                if (cycle > warmupCycleCount - baselineWindowCycleCount && cycle <= warmupCycleCount)
+                samples.Add(new RasterResourceSample(cycle, handleCount, threadCount));
+                if (cycle > warmupCycleCount)
                 {
-                    baselinePeakHandles = Math.Max(baselinePeakHandles, handleCount);
-                    baselinePeakThreads = Math.Max(baselinePeakThreads, threadCount);
-                }
-                else if (cycle > warmupCycleCount)
-                {
-                    peakHandles = Math.Max(peakHandles, handleCount);
-                    lastMeasuredHandles = handleCount;
-                    peakThreads = Math.Max(peakThreads, threadCount);
-                    lastMeasuredThreads = threadCount;
+                    int window = (cycle - warmupCycleCount - 1) / windowCycleCount;
+                    peakHandles[window] = Math.Max(peakHandles[window], handleCount);
+                    peakThreads[window] = Math.Max(peakThreads[window], threadCount);
                 }
             }
 
-            Assert.True(baselinePeakHandles > 0, "The warmup handle-count window was not sampled.");
+            Assert.All(peakHandles, count => Assert.True(count > 0, "A handle-count window was not sampled."));
+            bool growthDetected = peakHandles.Skip(1).Max() > peakHandles[0] + handleGrowthBudget;
             Assert.True(
-                peakHandles <= baselinePeakHandles + handleGrowthBudget,
-                $"RasterHost handle growth exceeded the bounded budget: warmupPeak={baselinePeakHandles}, " +
-                $"measuredPeak={peakHandles}, measuredLast={lastMeasuredHandles}, budget={handleGrowthBudget}; " +
-                $"threads warmupPeak={baselinePeakThreads}, measuredPeak={peakThreads}, " +
-                $"measuredLast={lastMeasuredThreads}.");
+                growthDetected == retainSurfaceTransfers,
+                $"RasterHost handle growth probe: injectedLeak={retainSurfaceTransfers}, " +
+                $"handleWindowPeaks=[{string.Join(",", peakHandles)}], budget={handleGrowthBudget}; " +
+                $"threadWindowPeaks=[{string.Join(",", peakThreads)}], " +
+                $"last={samples[^1]}. Samples: {JsonSerializer.Serialize(samples)}");
             Assert.False(File.Exists(logicalPath));
         }
         finally
@@ -390,6 +399,7 @@ public sealed class RasterHostStaticImageHandleTests
             finally
             {
                 try { File.Delete(physicalPath); } catch { }
+                WriteRasterResourceReport(samples, retainSurfaceTransfers);
             }
         }
         RasterHostProcessTestHelper.AssertCleanExit(host, hostExited);
@@ -998,7 +1008,8 @@ public sealed class RasterHostStaticImageHandleTests
         Process host,
         string requestId,
         CancellationToken cancellationToken,
-        string? canceledRequestId = null)
+        string? canceledRequestId = null,
+        RasterHostMessageReader? receiver = null)
     {
         PreviewSurface? surface = null;
         PreviewReady? ready = null;
@@ -1006,7 +1017,9 @@ public sealed class RasterHostStaticImageHandleTests
         PreviewImageThumbnail? thumbnail = null;
         while (surface is null || ready is null || waveform is null || thumbnail is null)
         {
-            ControlMessage message = await channel.ReceiveAsync(cancellationToken)
+            ControlMessage message = await (receiver is null
+                ? channel.ReceiveAsync(cancellationToken)
+                : receiver.ReceiveAsync(cancellationToken))
                 ?? throw RasterHostProcessTestHelper.HostClosed(host, "RasterHost closed before completing the parent image preview.");
             // Output may have been queued before the host processed close. Dispose its transfer
             // without letting it satisfy the replacement request's completion conditions.
@@ -1092,6 +1105,18 @@ public sealed class RasterHostStaticImageHandleTests
         DateTimeOffset GeneratedUtc,
         bool CancelBeforeReceiving,
         IReadOnlyCollection<MixedPreviewLatencySample> Samples);
+
+    private static void WriteRasterResourceReport(IReadOnlyCollection<RasterResourceSample> samples, bool injectedLeak)
+    {
+        string? directory = Environment.GetEnvironmentVariable("QL_RASTER_RESOURCE_REPORT_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+            return;
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, $"image-handles-{injectedLeak}-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(new { InjectedLeak = injectedLeak, Samples = samples }));
+    }
+
+    private sealed record RasterResourceSample(int Cycle, int Handles, int Threads);
 
     private sealed record MixedPreviewLatencySample(
         string Format,
