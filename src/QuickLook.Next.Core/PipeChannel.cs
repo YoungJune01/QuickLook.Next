@@ -26,20 +26,25 @@ public static class ProtocolJson
 /// <summary>
 /// Line-delimited JSON control channel over a duplex stream (the named pipe). Compact JSON contains no
 /// raw newlines, so '\n' framing is safe. Writes are serialized; one reader/one writer per channel.
+/// A canceled or failed in-flight write closes the transport: a partial frame must never be reused.
+/// Cancellation while waiting to start a frame leaves the channel usable.
 /// </summary>
 public sealed class PipeChannel : IDisposable
 {
     public const int MaxControlLineChars = 4 * 1024 * 1024;
 
+    private readonly Stream _stream;
     private readonly StreamReader _reader;
     private readonly StreamWriter _writer;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly char[] _readBuffer = new char[8192];
     private int _readOffset;
     private int _readCount;
+    private bool _writeFailed;
 
     public PipeChannel(Stream stream)
     {
+        _stream = stream;
         _reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
         _writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true };
     }
@@ -51,7 +56,22 @@ public sealed class PipeChannel : IDisposable
             throw new InvalidDataException($"control message is too large ({line.Length:N0} chars)");
 
         await _writeLock.WaitAsync(ct).ConfigureAwait(false);
-        try { await _writer.WriteLineAsync(line.AsMemory(), ct).ConfigureAwait(false); }
+        try
+        {
+            if (_writeFailed)
+                throw new IOException("Control channel closed after an incomplete write.");
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                await _writer.WriteLineAsync(line.AsMemory(), ct).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is OperationCanceledException or IOException)
+            {
+                _writeFailed = true;
+                SafeDispose(_stream);
+                throw;
+            }
+        }
         finally { _writeLock.Release(); }
     }
 
