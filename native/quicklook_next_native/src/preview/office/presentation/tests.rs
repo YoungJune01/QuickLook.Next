@@ -12,6 +12,15 @@ fn test_office_context() -> OfficeContext {
     OfficeContext::new(None)
 }
 
+#[test]
+fn pptx_xml_preserves_utf8_entities_and_literal_cdata() {
+    let text = extract_ppt_text(
+        &test_office_context(),
+        r#"<?xml version="1.0" encoding="UTF-8"?><p:sld><p:sp><p:txBody><a:p><a:r><a:t>你好 &amp; &#x1F600; &unknown;<![CDATA[ &amp; café]]></a:t></a:r></a:p></p:txBody></p:sp></p:sld>"#,
+    ).expect("PPTX XML text");
+    assert_eq!(text, "你好 & 😀 &unknown; &amp; café");
+}
+
 fn test_zip_bytes(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for (name, bytes) in entries {

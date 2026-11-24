@@ -11,9 +11,9 @@ mod tests;
 use super::super::{
     attr_bool, attr_f64, attr_value, file_name, local_xml_name, normalize_preview_lines,
     normalize_zip_target, office_color_from_element, office_preview_json_with_layout,
-    read_office_zip_text, truncate_preview_text, xml_general_ref, xml_unescape_bytes,
-    OfficeContext, OfficeLayoutDto, OfficeLayoutItemDto, OfficePageDto, OfficeResult,
-    MAX_OFFICE_LAYOUT_IMAGES, OFFICE_EMUS_PER_DIP,
+    read_office_zip_text, truncate_preview_text, xml_general_ref, xml_unescape_str, OfficeContext,
+    OfficeLayoutDto, OfficeLayoutItemDto, OfficePageDto, OfficeResult, MAX_OFFICE_LAYOUT_IMAGES,
+    OFFICE_EMUS_PER_DIP,
 };
 use super::count_numbered_parts;
 use super::image::{append_office_media_summary, office_media_entries};
@@ -526,7 +526,7 @@ fn parse_ppt_slide_items<R: Read + Seek>(
                 }
             }
             Ok(Event::Text(e)) if in_shape && in_text => {
-                let value = xml_unescape_bytes(e.as_ref());
+                let value = xml_unescape_str(e.as_ref());
                 if !value.is_empty() {
                     text.push_str(&value);
                     shape_paragraph_had_text = true;
@@ -537,9 +537,9 @@ fn parse_ppt_slide_items<R: Read + Seek>(
                 shape_paragraph_had_text = true;
             }
             Ok(Event::CData(e)) if in_shape && in_text => {
-                let value = String::from_utf8_lossy(e.as_ref());
+                let value = e.as_ref();
                 if !value.is_empty() {
-                    text.push_str(&value);
+                    text.push_str(value);
                     shape_paragraph_had_text = true;
                 }
             }
@@ -1034,7 +1034,7 @@ fn extract_ppt_text(context: &OfficeContext, xml: &str) -> OfficeResult<String> 
                 }
             }
             Ok(Event::Text(e)) if in_text => {
-                let value = xml_unescape_bytes(e.as_ref());
+                let value = xml_unescape_str(e.as_ref());
                 if !value.is_empty() {
                     out.push_str(&value);
                     paragraph_had_text = true;
@@ -1045,9 +1045,9 @@ fn extract_ppt_text(context: &OfficeContext, xml: &str) -> OfficeResult<String> 
                 paragraph_had_text = true;
             }
             Ok(Event::CData(e)) if in_text => {
-                let value = String::from_utf8_lossy(e.as_ref());
+                let value = e.as_ref();
                 if !value.is_empty() {
-                    out.push_str(&value);
+                    out.push_str(value);
                     paragraph_had_text = true;
                 }
             }

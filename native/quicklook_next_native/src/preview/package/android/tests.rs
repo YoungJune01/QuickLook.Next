@@ -8,6 +8,57 @@ use super::{
 };
 
 #[test]
+fn android_xml_preserves_utf8_and_attribute_entities() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?><manifest><application android:icon="@drawable/café&#x4E66;&amp;茶"/></manifest>"#;
+    let decoded = super::decode_android_xml(xml.as_bytes(), None).expect("UTF-8 manifest");
+    assert_eq!(
+        super::android_manifest_icon_reference(&decoded).as_deref(),
+        Some("@drawable/café书&茶")
+    );
+    assert_eq!(
+        super::android_xml_drawable_reference(
+            r#"<adaptive-icon><foreground drawable="@drawable/图&amp;像"/></adaptive-icon>"#,
+            "foreground",
+        )
+        .as_deref(),
+        Some("@drawable/图&像")
+    );
+    assert!(super::decode_android_xml(b"<manifest>\xff</manifest>", None).is_none());
+    assert!(
+        super::android_manifest_icon_reference(r#"<application android:icon="&unknown;"/>"#)
+            .is_none()
+    );
+}
+
+#[test]
+fn android_color_xml_uses_decoded_text_and_rejects_invalid_colors() {
+    let bytes = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()))
+        .finish()
+        .expect("empty ZIP");
+    let mut zip = zip::ZipArchive::new(bytes).expect("ZIP reader");
+    let mut attempts = 0;
+    let image = super::render_android_icon_xml(
+        &mut zip,
+        None,
+        "<color>#112233</color>",
+        0,
+        &mut attempts,
+        None,
+    )
+    .expect("color drawable");
+    assert_eq!(image.to_rgba8().get_pixel(0, 0), &Rgba([17, 34, 51, 255]));
+    assert!(super::render_android_icon_xml(
+        &mut zip,
+        None,
+        "<color>é</color>",
+        0,
+        &mut attempts,
+        None,
+    )
+    .is_none());
+}
+
+#[test]
 fn android_resource_table_resolves_obfuscated_icon_path() {
     fn put_u16(bytes: &mut [u8], offset: usize, value: u16) {
         bytes[offset..offset + 2].copy_from_slice(&value.to_le_bytes());

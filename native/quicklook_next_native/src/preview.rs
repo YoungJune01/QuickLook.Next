@@ -441,19 +441,12 @@ fn normalize_preview_lines(text: &str) -> String {
         .join("\n")
 }
 
-fn local_xml_name(bytes: &[u8]) -> String {
-    let name = std::str::from_utf8(bytes).unwrap_or("");
+fn local_xml_name(name: &str) -> String {
     name.rsplit(':').next().unwrap_or(name).to_ascii_lowercase()
 }
 
-fn xml_unescape_bytes(bytes: &[u8]) -> String {
-    let s = String::from_utf8_lossy(bytes);
-    xml_unescape_str(&s)
-}
-
-fn xml_general_ref(bytes: &[u8]) -> String {
-    let entity = String::from_utf8_lossy(bytes);
-    decode_xml_entity(&entity)
+fn xml_general_ref(entity: &str) -> String {
+    decode_xml_entity(entity)
         .map(|value| value.to_string())
         .unwrap_or_else(|| format!("&{entity};"))
 }
@@ -940,6 +933,28 @@ mod tests {
             xml_unescape_str("A&#65;&#x41;&lt;&gt;&amp;&quot;&apos;&unknown;"),
             "AAA<>&\"'&unknown;"
         );
+    }
+
+    #[test]
+    fn xml_string_events_preserve_unicode_references_and_literal_cdata() {
+        let mut reader = Reader::from_str(
+            "\u{feff}<?xml version=\"1.0\" encoding=\"UTF-8\"?><ns:标题 ns:名称=\"café &amp; &#x4E66;\">你好 &amp; &#128512; &unknown;<![CDATA[ &amp; é]]></ns:标题>",
+        );
+        let mut output = String::new();
+        loop {
+            match reader.read_event().expect("valid UTF-8 XML") {
+                Event::Start(element) => {
+                    assert_eq!(local_xml_name(element.name().as_ref()), "标题");
+                    assert_eq!(attr_value(&element, "名称").as_deref(), Some("café & 书"));
+                }
+                Event::Text(text) => output.push_str(&xml_unescape_str(&text)),
+                Event::GeneralRef(entity) => output.push_str(&xml_general_ref(&entity)),
+                Event::CData(text) => output.push_str(&text),
+                Event::Eof => break,
+                _ => {}
+            }
+        }
+        assert_eq!(output, "你好 & 😀 &unknown; &amp; é");
     }
 
     #[test]
@@ -1635,6 +1650,25 @@ mod tests {
             "chapter",
         );
         assert!(markdown.contains("Rock & Roll"));
+    }
+
+    #[test]
+    fn ebook_xml_preserves_utf8_entities_cdata_and_attribute_paths() {
+        assert_eq!(
+            parse_epub_rootfile(
+                r#"<container><rootfiles><rootfile full-path="书籍/café&amp;茶.opf"/></rootfiles></container>"#,
+            ).as_deref(),
+            Some("书籍/café&茶.opf")
+        );
+        let opf = parse_epub_opf(
+            r#"<?xml version="1.0" encoding="UTF-8"?><package><metadata><dc:title>你好 &amp; &#x1F600;<![CDATA[ &amp; café]]></dc:title></metadata></package>"#,
+        );
+        assert_eq!(opf.title, "你好 & 😀 &amp; café");
+        let markdown = extract_xhtml_markdown(
+            r#"<html><body><p>你好 &amp; &#x1F600; &unknown;<![CDATA[ &amp; café]]></p></body></html>"#,
+            "chapter",
+        );
+        assert!(markdown.contains("你好 & 😀 &unknown; &amp; café"));
     }
 
     #[test]

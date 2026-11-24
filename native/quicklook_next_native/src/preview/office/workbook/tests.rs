@@ -13,6 +13,25 @@ fn test_office_context() -> OfficeContext {
     OfficeContext::new(None)
 }
 
+#[test]
+fn xlsx_xml_preserves_utf8_entities_and_literal_cdata() {
+    let context = test_office_context();
+    let shared = parse_shared_strings(
+        &context,
+        r#"<?xml version="1.0" encoding="UTF-8"?><sst><si><t>你好 &amp; &#x1F600; &unknown;<![CDATA[ &amp; café]]></t></si></sst>"#,
+    ).expect("shared strings");
+    assert_eq!(shared, ["你好 & 😀 &unknown; &amp; café"]);
+    let rows = parse_worksheet_rows(
+        &context,
+        r#"<worksheet><sheetData><row><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>书 &amp; &#233;<![CDATA[ &amp;]]></t></is></c></row></sheetData></worksheet>"#,
+        &shared,
+    ).expect("worksheet rows");
+    assert_eq!(
+        rows,
+        [vec!["你好 & 😀 &unknown; &amp; café", "书 & é &amp;"]]
+    );
+}
+
 fn test_zip_bytes(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for (name, bytes) in entries {

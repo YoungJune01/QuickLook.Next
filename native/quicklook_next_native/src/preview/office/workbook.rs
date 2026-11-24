@@ -16,7 +16,7 @@ mod tests;
 use super::super::{
     attr_bool, attr_f64, attr_value, file_name, local_xml_name, normalize_hex_color,
     normalize_zip_target, office_preview_json_with_layout, read_office_zip_text,
-    truncate_preview_text, xml_general_ref, xml_unescape_bytes, OfficeCellDto, OfficeContext,
+    truncate_preview_text, xml_general_ref, xml_unescape_str, OfficeCellDto, OfficeContext,
     OfficeLayoutDto, OfficeLayoutItemDto, OfficePageDto, OfficeResult, MAX_OFFICE_LAYOUT_IMAGES,
     OFFICE_EMUS_PER_DIP,
 };
@@ -641,7 +641,7 @@ fn parse_xlsx_drawing_items<R: Read + Seek>(
                 }
             }
             Ok(Event::Text(e)) if in_anchor && !marker.is_empty() && !current_tag.is_empty() => {
-                let value = xml_unescape_bytes(e.as_ref())
+                let value = xml_unescape_str(e.as_ref())
                     .trim()
                     .parse::<usize>()
                     .unwrap_or(0);
@@ -926,9 +926,9 @@ fn parse_shared_strings(context: &OfficeContext, xml: &str) -> OfficeResult<Vec<
                     in_si = false;
                 }
             }
-            Ok(Event::Text(e)) if in_t => current.push_str(&xml_unescape_bytes(e.as_ref())),
+            Ok(Event::Text(e)) if in_t => current.push_str(&xml_unescape_str(e.as_ref())),
             Ok(Event::GeneralRef(e)) if in_t => current.push_str(&xml_general_ref(e.as_ref())),
-            Ok(Event::CData(e)) if in_t => current.push_str(&String::from_utf8_lossy(e.as_ref())),
+            Ok(Event::CData(e)) if in_t => current.push_str(e.as_ref()),
             Ok(Event::Eof) => break,
             Err(_) => break,
             _ => {}
@@ -1036,14 +1036,12 @@ fn parse_worksheet_rows(
                 }
             }
             Ok(Event::Text(e)) if in_value || in_inline_text => {
-                cell_value.push_str(&xml_unescape_bytes(e.as_ref()))
+                cell_value.push_str(&xml_unescape_str(e.as_ref()))
             }
             Ok(Event::GeneralRef(e)) if in_value || in_inline_text => {
                 cell_value.push_str(&xml_general_ref(e.as_ref()))
             }
-            Ok(Event::CData(e)) if in_value || in_inline_text => {
-                cell_value.push_str(&String::from_utf8_lossy(e.as_ref()))
-            }
+            Ok(Event::CData(e)) if in_value || in_inline_text => cell_value.push_str(e.as_ref()),
             Ok(Event::Eof) => break,
             Err(_) => break,
             _ => {}

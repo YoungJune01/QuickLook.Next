@@ -13,7 +13,7 @@ use layout::build_docx_layout;
 use super::super::{
     attr_value, file_name, local_xml_name, normalize_preview_lines, office_error_json,
     office_preview_json_with_layout, office_text_json, read_office_zip_text, truncate_preview_text,
-    xml_general_ref, xml_unescape_bytes, OfficeContext, OfficeResult, MAX_OFFICE_ZIP_ENTRIES,
+    xml_general_ref, xml_unescape_str, OfficeContext, OfficeResult, MAX_OFFICE_ZIP_ENTRIES,
 };
 use super::image::{append_office_media_summary, office_media_entries};
 
@@ -256,7 +256,7 @@ fn extract_wordprocessing_text(context: &OfficeContext, xml: &str) -> OfficeResu
                 }
             }
             Ok(Event::Text(e)) if in_text => {
-                let value = xml_unescape_bytes(e.as_ref());
+                let value = xml_unescape_str(e.as_ref());
                 if !value.is_empty() {
                     if in_cell {
                         cell_text.push_str(&value);
@@ -276,12 +276,12 @@ fn extract_wordprocessing_text(context: &OfficeContext, xml: &str) -> OfficeResu
                 paragraph_had_text = true;
             }
             Ok(Event::CData(e)) if in_text => {
-                let value = String::from_utf8_lossy(e.as_ref());
+                let value = e.as_ref();
                 if !value.is_empty() {
                     if in_cell {
-                        cell_text.push_str(&value);
+                        cell_text.push_str(value);
                     } else {
-                        out.push_str(&value);
+                        out.push_str(value);
                     }
                     paragraph_had_text = true;
                 }

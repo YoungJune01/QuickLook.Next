@@ -269,13 +269,9 @@ fn parse_appx_manifest_summary(xml: &str) -> Option<AppxManifestSummary> {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
-                let name = std::str::from_utf8(e.name().as_ref())
-                    .ok()?
-                    .to_ascii_lowercase();
+                let name = e.name().as_ref().to_ascii_lowercase();
                 for attr in e.attributes().flatten() {
-                    let key = std::str::from_utf8(attr.key.as_ref())
-                        .unwrap_or("")
-                        .to_ascii_lowercase();
+                    let key = attr.key.as_ref().to_ascii_lowercase();
                     let value = attr
                         .normalized_value(XmlVersion::Implicit1_0)
                         .ok()

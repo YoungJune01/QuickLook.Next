@@ -415,13 +415,13 @@ fn parse_epub_opf_with_context(
                 }
             }
             Ok(Event::Text(e)) if in_metadata && !current_meta.is_empty() => {
-                current_meta_value.push_str(&xml_unescape_bytes(e.as_ref()));
+                current_meta_value.push_str(&xml_unescape_str(e.as_ref()));
             }
             Ok(Event::GeneralRef(e)) if in_metadata && !current_meta.is_empty() => {
                 current_meta_value.push_str(&xml_general_ref(e.as_ref()));
             }
             Ok(Event::CData(e)) if in_metadata && !current_meta.is_empty() => {
-                current_meta_value.push_str(&String::from_utf8_lossy(e.as_ref()));
+                current_meta_value.push_str(e.as_ref());
             }
             Ok(Event::End(e)) => {
                 let name = local_xml_name(e.name().as_ref());
@@ -586,13 +586,13 @@ fn extract_xhtml_markdown_with_context(
                 }
             }
             Ok(Event::Text(e)) if in_body && ignored_depth == 0 => {
-                current_block.push_str(&xml_unescape_bytes(e.as_ref()));
+                current_block.push_str(&xml_unescape_str(e.as_ref()));
             }
             Ok(Event::GeneralRef(e)) if in_body && ignored_depth == 0 => {
                 current_block.push_str(&xml_general_ref(e.as_ref()));
             }
             Ok(Event::CData(e)) if in_body && ignored_depth == 0 => {
-                current_block.push_str(&String::from_utf8_lossy(e.as_ref()));
+                current_block.push_str(e.as_ref());
             }
             Ok(Event::End(e)) => {
                 let name = local_xml_name(e.name().as_ref());
@@ -769,7 +769,7 @@ fn render_fb2_reader<R: Read>(
                 }
             }
             Ok(Event::Text(e)) => {
-                let value = xml_unescape_bytes(e.as_ref());
+                let value = xml_unescape_str(e.as_ref());
                 if in_body {
                     current_block.push_str(&value);
                 } else if in_title_info && !current_meta.is_empty() {
@@ -785,11 +785,11 @@ fn render_fb2_reader<R: Read>(
                 }
             }
             Ok(Event::CData(e)) => {
-                let value = String::from_utf8_lossy(e.as_ref());
+                let value = e.as_ref();
                 if in_body {
-                    current_block.push_str(&value);
+                    current_block.push_str(value);
                 } else if in_title_info && !current_meta.is_empty() {
-                    current_meta_value.push_str(&value);
+                    current_meta_value.push_str(value);
                 }
             }
             Ok(Event::End(e)) => {

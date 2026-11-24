@@ -10,6 +10,15 @@ use super::{
 
 mod layout;
 
+#[test]
+fn docx_xml_preserves_utf8_entities_and_literal_cdata() {
+    let text = extract_wordprocessing_text(
+        &test_office_context(),
+        r#"<?xml version="1.0" encoding="UTF-8"?><w:document><w:body><w:p><w:r><w:t>你好 &amp; &#x1F600; &unknown;<![CDATA[ &amp; café]]></w:t></w:r></w:p></w:body></w:document>"#,
+    ).expect("DOCX XML text");
+    assert_eq!(text, "你好 & 😀 &unknown; &amp; café");
+}
+
 extern "C" fn always_cancel() -> bool {
     true
 }

@@ -6,6 +6,18 @@ use image::{DynamicImage, Rgba, RgbaImage};
 use super::{extract_package_icon_bgra, package_icon_candidate_score};
 
 #[test]
+fn appx_xml_preserves_utf8_and_attribute_entities() {
+    let summary = super::parse_appx_manifest_summary(
+        r#"<?xml version="1.0" encoding="UTF-8"?><Package><Identity Name="café&#x4E66;" Publisher="CN=A &amp; B" Version="1.2.3.4"/><Applications><Application Executable="程序.exe"><uap:VisualElements DisplayName="你好 &amp; &#x1F600;" Square150x150Logo="图像/café.png"/></Application></Applications></Package>"#,
+    ).expect("APPX manifest");
+    assert_eq!(summary.name.as_deref(), Some("café书"));
+    assert_eq!(summary.publisher.as_deref(), Some("CN=A & B"));
+    assert_eq!(summary.display_name.as_deref(), Some("你好 & 😀"));
+    assert_eq!(summary.executable.as_deref(), Some("程序.exe"));
+    assert_eq!(summary.icon_paths, ["图像/café.png"]);
+}
+
+#[test]
 fn package_icon_candidates_accept_arbitrary_android_mipmap_names() {
     assert!(package_icon_candidate_score("res/mipmap-xxxhdpi/product_mark.png") > 0);
     assert!(package_icon_candidate_score("base/res/mipmap-hdpi/brand_asset.webp") > 0);
